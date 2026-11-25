@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
+    "build:pages": "VITE_BASE_PATH=/suk-link/ VITE_STATIC_DEMO=true tsc --noEmit && VITE_BASE_PATH=/suk-link/ VITE_STATIC_DEMO=true vite build && cp dist/index.html dist/404.html && touch dist/.nojekyll",
     "preview": "vite preview --port 4173",
     "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
     "typecheck": "tsc --noEmit",
@@ -52,7 +53,7 @@
     "dexie-react-hooks": "^1.1.7",
     "framer-motion": "^11.11.9",
     "i18next": "^23.16.4",
-    "i18next-icu": "^2.4.0",
+    "i18next-icu": "^2.3.0",
     "idb-keyval": "^6.2.1",
     "lucide-react": "^0.453.0",
     "react": "^18.3.1",
@@ -72,7 +73,7 @@
   },
   "devDependencies": {
     "@capacitor/cli": "^6.1.2",
-    "@playwright/test": "^1.48.2",
+    "@playwright/test": "1.48.2",
     "@testing-library/jest-dom": "^6.6.2",
     "@testing-library/react": "^16.0.1",
     "@types/node": "^22.7.8",
@@ -89,7 +90,6 @@
     "jsdom": "^25.0.1",
     "postcss": "^8.4.47",
     "prettier": "^3.3.3",
-    "supabase": "^1.207.9",
     "tailwindcss": "^3.4.14",
     "tsx": "^4.19.1",
     "typescript": "^5.6.3",

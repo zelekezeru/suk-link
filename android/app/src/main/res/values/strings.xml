@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Suk Link</string>
+    <string name="title_activity_main">Suk Link</string>
+    <string name="package_name">et.suklink.app</string>
+    <string name="custom_url_scheme">et.suklink.app</string>
+</resources>

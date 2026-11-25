@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 300" width="400" height="300">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#EAB308" stop-opacity="0.18"/>
+      <stop offset="100%" stop-color="#EAB308" stop-opacity="0.38"/>
+    </linearGradient>
+  </defs>
+  <rect width="400" height="300" rx="24" fill="url(#bg)"/>
+  <circle cx="200" cy="125" r="56" fill="#EAB308" fill-opacity="0.88"/>
+  <text x="200" y="135" text-anchor="middle" font-family="Inter, sans-serif" font-size="28" font-weight="700" fill="#FFFFFF">CO</text>
+  <text x="200" y="225" text-anchor="middle" font-family="Inter, sans-serif" font-size="20" font-weight="600" fill="#0F172A">Cooking oil 3L</text>
+  <text x="200" y="255" text-anchor="middle" font-family="Inter, sans-serif" font-size="16" font-weight="500" fill="#475569">Br 690.00 / litre</text>
+</svg>

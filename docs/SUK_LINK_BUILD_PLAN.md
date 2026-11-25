@@ -21,7 +21,7 @@
 - **Payments:** **Chapa** is the primary gateway. **telebirr** and **CBE Birr** are also offered as selectable methods, alongside **cash** and **pay later (credit)**. Every online method sits behind a common `PaymentProvider` interface (Section 4, Payments). A **Demo provider** must also exist so the demo works without live keys.
 - **The subscription is configurable:** plan price, duration, trial length, grace period and reminder schedule live in the `plans` and `app_settings` tables and are editable from the admin dashboard. The annual plan is the default.
 - **Credit timing (confirmed):** a customer's charge is recorded on the shop's ledger **when the shop accepts the order** (Section 5).
-- Registration uses email or phone plus a password. Phone numbers are validated against the market's format. Phone OTP is Phase 2.
+- **Sign-in identity:** a user can register with a phone number, an email, or both, plus a password. Phone numbers are validated against the market's format. Supabase Auth is keyed on email, so a phone-only user gets a synthetic, non-deliverable email (`<digits>@phone.suklink.invalid`). The login screen accepts either identifier and maps a phone number to that email. Email confirmation is off in the MVP (no SMS provider), so phone numbers are unverified until phone OTP in Phase 2. Phone-only accounts cannot reset a password by email, so an admin triggers the reset through support. Record this in `DECISIONS.md`.
 
 ---
 
@@ -88,12 +88,13 @@ Two devices or browser sessions: **Device 1 = Customer**, **Device 2 = Shop Owne
 - **Language and market first:** the Welcome screen opens with a language picker that shows each language in its own name (English · አማርኛ · Afaan Oromoo · Soomaali · ትግርኛ · Kiswahili). The market is preselected as the default (ET). A market selector appears only when more than one market is active.
 - **Register:** full name, phone (input mask and country code from the market, e.g. +251), email, password (min 8, show/hide). Show a password strength hint. Validate with zod. Map server errors to friendly messages.
 - **Login and logout:** email or phone plus password. "Remember me" is the default (session persisted). Logout clears the local Dexie DB, the query cache and the cart for that user. This prevents data leaking between accounts on a shared device. **Critical for switching between demo accounts.**
-- **Forgot password:** Supabase email reset.
+- **Forgot password:** Supabase email reset for accounts that have an email. Phone-only accounts see "Contact support" (see the sign-in identity decision in Section 0).
+- **Legal and account deletion:** the register screen requires accepting the Terms and Privacy Policy (versioned, with the acceptance time stored on the profile). Profile has **Delete my account** (required by Apple and Google). Deletion anonymizes the profile but keeps orders and ledger rows, because shops need their records.
 - **Profile:** name, phone, avatar (camera or gallery), language (any language enabled for the market: en · am · om · so · ti · sw), theme (system, light or dark), default delivery address or note.
 - **Role-based dashboards** as described in Section 2.
 
 ### B. Shop profile and product management (shop owner)
-- **Shop setup wizard** (first login): name, category (grocery, bakery, pharmacy, electronics, other), phone, address text, optional map pin (lat/lng from the browser geolocation), opening hours (simple from/to time), logo and cover image, "accepts credit" toggle, delivery or pickup options. A new shop gets a **30-day free trial** subscription automatically.
+- **Shop setup wizard** (first login): name, category (grocery, bakery, pharmacy, electronics, other), phone, address text, optional map pin (lat/lng from the browser geolocation), opening hours (simple from/to time), logo and cover image, "accepts credit" toggle, delivery or pickup options. A new shop gets a free-trial subscription automatically, with the length taken from the market's default plan (`plans.trial_days`).
 - **Shop profile edit** with the same fields, plus an **Open/Closed toggle**. Customers can browse a closed shop but cannot order from it.
 - **Products:** list with search and an availability filter. Add/edit sheet: image (camera, gallery or URL; client-side compressed to a maximum of 1024px WebP, under 200KB), name, description (optional), price in the market currency (decimal input, stored as minor units), unit (piece, kg, litre, pack), category (free text with suggestions), **available toggle** (a one-tap switch directly in the list). Delete is a **soft delete** with confirmation and a 5-second undo toast.
 - Products with `is_available = false` show to customers as "Out of stock" and cannot be added to the cart.
@@ -126,7 +127,7 @@ Two devices or browser sessions: **Device 1 = Customer**, **Device 2 = Shop Owne
    - Shop owner: a "Customers with balances" summary card on the dashboard.
    - Delivered as `notifications` rows plus an in-app banner.
 5. **Customer support:** "Help & Support" screen with FAQ (static, i18n), a **contact form** that creates a `support_tickets` row, plus Call and Telegram/WhatsApp deep links (configurable numbers). Users see their ticket list and status.
-6. **Admin dashboard:** KPI cards (users by role, shops, active / trial / expired subscriptions, orders today, GMV today). Tables for Users (search, role, created_at, disable or enable), Shops (owner, status, subscription, expiry), Subscriptions (activate, extend 1 year, suspend, each with a reason; every action is logged in `audit_log`) and Support tickets (status: open → in_progress → resolved). It also has **configuration screens**:
+6. **Admin dashboard:** KPI cards (users by role, shops, active / trial / expired subscriptions, orders today, GMV today). Tables for Users (search, role, created_at, disable or enable), Shops (owner, status, subscription, expiry), Subscriptions (activate, extend by one plan period, suspend, each with a reason; every action is logged in `audit_log`) and Support tickets (status: open → in_progress → resolved). It also has **configuration screens**:
    - **Markets:** create or edit a market (currency, symbol, minor digits, phone code and regex, timezone, enabled and default languages), activate or deactivate it, set the default.
    - **Payment methods per market:** enable or disable, sort order, display name per language, routing (`via_chapa` | `direct`).
    - **Plans per market:** price, duration, trial days, grace days, active or default.
@@ -194,14 +195,15 @@ orders              id uuid (CLIENT-GENERATED, used as idempotency key) · order
 order_items         order_id · product_id · product_name_snapshot · unit_snapshot · unit_price_minor (snapshot)
                     · quantity int check (1..999) · line_total_minor
 order_events        order_id · from_status · to_status · actor_id · reason · created_at    (append-only timeline)
-payments            id · purpose (order|subscription) · order_id null · subscription_id null · shop_id · payer_id
+payments            id · purpose (order|balance|subscription) · order_id null · subscription_id null · shop_id · shop_customer_id null · payer_id
                     · amount_minor · currency_code · method_code → payment_methods (chapa|telebirr|cbe_birr|cash|demo|other)
-                    · provider (chapa|telebirr|cbe_birr|demo|manual) · provider_ref
-                    · provider_ref · status (pending|succeeded|failed|refunded) · idempotency_key unique
+                    · provider (chapa|telebirr|cbe_birr|demo|manual) · provider_ref · unique(provider, provider_ref)
+                    · status (pending|succeeded|failed|refunded) · idempotency_key unique
                     · recorded_by · paid_at
-shop_customers      shop_id · customer_id · credit_limit_minor null · notes · first_order_at · last_order_at
-                    (unique(shop_id, customer_id); row created on first order)
-ledger_entries      shop_id · customer_id · order_id null · payment_id null · type (charge|payment|adjustment)
+shop_customers      shop_id · customer_id null (null = walk-in customer without an app account) · display_name · phone
+                    · credit_limit_minor null · notes · first_order_at · last_order_at
+                    (unique(shop_id, customer_id) where customer_id is not null; created on first order or by the shop owner, Section 17.1)
+ledger_entries      shop_id · shop_customer_id · order_id null · payment_id null · type (charge|payment|adjustment)
                     · amount_minor (charge = +, payment = −) · description · created_by · created_at
                     (APPEND-ONLY: no update/delete policies. Corrections are new adjustment rows.)
 plans               market_code · code (e.g. annual) · name_i18n jsonb · price_minor · currency_code · duration_days
@@ -234,14 +236,14 @@ app_settings        key (PK) · value jsonb · updated_by · updated_at
 - Customers see only shops in their own market. A shop's currency is its market's currency.
 
 **Views and functions:**
-- `v_customer_balances(shop_id, customer_id, balance_minor, last_activity)` = `SUM(ledger_entries.amount_minor)`.
+- `v_customer_balances(shop_id, shop_customer_id, balance_minor, last_activity)` = `SUM(ledger_entries.amount_minor)`.
 - `v_shop_sales_daily(shop_id, day, orders_count, gross_minor, collected_minor)`.
-- Indexes: `orders(shop_id, status, placed_at desc)`, `orders(customer_id, placed_at desc)`, `products(shop_id) where deleted_at is null`, `ledger_entries(shop_id, customer_id)`, and `updated_at` on every synced table (for delta sync).
+- Indexes: `orders(shop_id, status, placed_at desc)`, `orders(customer_id, placed_at desc)`, `products(shop_id) where deleted_at is null`, `ledger_entries(shop_id, shop_customer_id)`, `unique(shop_id, order_number)`, and `updated_at` on every synced table (for delta sync).
 - Enable Realtime on `orders`, `order_events`, `products`, `payments`, `notifications`, `subscriptions`.
 
 **Ledger semantics (must be exact):**
 - **Confirmed rule:** when the shop **accepts** an order (`pending → accepted`), write one `charge` of +total for that order. From that moment it counts in the customer's outstanding balance at that shop.
-- If an accepted order is later cancelled or rejected (only possible by admin or the shop owner, with a reason), write a compensating `adjustment` of −total. If money was already paid against it, the shop must refund or keep it as customer credit, so show a warning and record the choice.
+- If an accepted or processing order is later cancelled by the shop owner (a reason is required; `rejected` is only valid from `pending`), write a compensating `adjustment` of −total. If money was already paid against it, the shop must refund or keep it as customer credit, so show a warning and record the choice.
 - When a payment succeeds, write a `payment` entry of −amount.
 - Balance = sum of entries. An order's paid amount = −sum(payment entries for that order).
 - `payment_status` is recalculated by function `recompute_order_payment_status(order_id)` after every ledger write.
@@ -258,13 +260,16 @@ The client **never** writes directly to `orders`, `order_items`, `payments`, `le
 | Function | Who | Behavior |
 |---|---|---|
 | `place_order(p_order_id uuid, p_shop_id, p_items jsonb[{product_id, quantity}], p_fulfilment, p_address, p_note, p_client_created_at, p_expected_total_minor)` | customer | **Idempotent** on `p_order_id`: if the order already exists for this customer, return it. Checks: shop exists, is open, subscription is not expired or suspended, every product belongs to the shop, is available and not deleted, quantity is between 1 and 999. **Recomputes** prices and totals from the DB. If the total differs from `p_expected_total_minor`, raise `PRICE_CHANGED` with the new lines (client asks for confirmation and retries). Inserts order + items + event, upserts `shop_customers`, inserts a notification for the shop owner. |
-| `update_order_status(p_order_id, p_to_status, p_reason)` | shop owner of that shop (customer only for `cancelled` from `pending`) | Enforces the transition table: pending→accepted/rejected/cancelled, accepted→processing, processing→completed. Requires a reason for rejected or cancelled. Writes `order_events` and the ledger effects from Section 5, and notifies the customer. A no-op if the order is already in the target status, so retries are idempotent. |
-| `record_payment(p_idempotency_key, p_shop_id, p_customer_id, p_order_id null, p_amount_minor, p_method, p_note)` | shop owner | Manual cash or other payment. Amount must be > 0 and ≤ outstanding (unless an admin override flag is set). Writes payment + ledger + recompute. |
+| `update_order_status(p_order_id, p_to_status, p_reason)` | shop owner of that shop (customer only for `cancelled` from `pending`) | Enforces the transition table: pending→accepted/rejected/cancelled, accepted→processing/cancelled (owner only), processing→completed/cancelled (owner only), and nothing leaves completed, rejected or cancelled. Requires a reason for rejected or cancelled. Writes `order_events` and the ledger effects from Section 5, and notifies the customer. A no-op if the order is already in the target status, so retries are idempotent. |
+| `record_payment(p_idempotency_key, p_shop_id, p_shop_customer_id, p_order_id null, p_amount_minor, p_method, p_note)` | shop owner | Manual cash or other payment. Amount must be > 0 and ≤ outstanding (unless an admin override flag is set). Writes payment + ledger + recompute. |
 | `set_order_on_credit(p_order_id)` | customer (if the shop accepts credit and the credit limit is not exceeded) or shop owner | Marks the order `on_credit`. The charge stays on the ledger. |
 | `admin_set_subscription(p_shop_id, p_action: activate|extend|suspend|unsuspend, p_reason)` | admin | Updates the subscription and writes `audit_log`. |
+| `record_manual_charge(p_idempotency_key, p_shop_id, p_shop_customer_id, p_amount_minor, p_note)` | shop owner | Goods given on credit outside an app order (Section 17.1). Writes a `charge`, with limit check and audit. |
+| `upsert_shop_customer(p_shop_id, p_display_name, p_phone, p_credit_limit_minor)` | shop owner | Creates or edits a walk-in customer. If a registered user has the same phone, links `customer_id`. |
+| `delete_my_account()` | any user | Anonymizes the profile, keeps orders and ledger rows (Section 4A). |
 | `mark_notifications_read(p_ids uuid[])` | owner of the notifications | |
 
-Edge Functions (Deno, `supabase/functions`): `payments-init`, `payments-webhook`, `payments-demo-confirm`, `reminders-run` (called by `pg_cron`), `admin-stats`. They share `supabase/functions/_shared/{provider.ts, chapa.ts, demo.ts, schemas.ts, money.ts}`.
+Edge Functions (Deno, `supabase/functions`): `payments-init`, `payments-webhook`, `payments-demo-confirm`, `reminders-run` and `subscriptions-tick` (both called by `pg_cron`), `admin-stats`. They share `supabase/functions/_shared/{provider.ts, chapa.ts, demo.ts, schemas.ts, money.ts}`.
 
 **RLS policies (enable RLS on every table; default deny):**
 - `profiles`: a user selects or updates only their own row and cannot change `role`. A shop owner can read the name and phone of customers who ordered from their shop. Admin reads all.
@@ -397,7 +402,7 @@ suk-link/
 ├─ supabase/
 │  ├─ migrations/  0001_extensions_enums.sql · 0002_core_tables.sql · 0003_rls.sql · 0004_functions.sql
 │  │               0005_views_indexes.sql · 0006_realtime_cron_storage.sql
-│  ├─ functions/   _shared/ · payments-init/ · payments-webhook/ · payments-demo-confirm/ · reminders-run/ · admin-stats/
+│  ├─ functions/   _shared/ · payments-init/ · payments-webhook/ · payments-demo-confirm/ · reminders-run/ · subscriptions-tick/ · admin-stats/
 │  └─ seed.sql     (plus scripts/seed.ts for auth users and images)
 ├─ src/
 │  ├─ app/          router.tsx · guards.tsx · layouts/ (CustomerLayout, ShopLayout, AdminLayout, AuthLayout)
@@ -443,6 +448,7 @@ suk-link/
   - `shop@demo.suklink.et`: Abebe Kebede, owner of **"Abebe Mini Market"** (grocery, accepts credit, open, subscription **active**, expires in ~11 months)
   - `shop2@demo.suklink.et`: owner of "Tsehay Bakery" (subscription in **trial**, 5 days left, to show reminders)
   - `admin@demo.suklink.et`: admin
+- **Walk-in customer:** at Abebe Mini Market, "Ato Kebede (walk-in)" with a phone number and Br 450 of manual credit, so the credit screens show a customer who is not on the app.
 - **Products for Abebe Mini Market** (with real-looking photos stored in `scripts/seed-images/` and uploaded to Storage; include licence-free images): Teff Injera (5 pcs) Br 75 · Buna / Coffee beans 500g Br 320 · Sugar 1kg Br 140 · Cooking oil 3L Br 690 · Pasta 500g Br 85 · Lentils (misir) 1kg Br 180 · Berbere 250g Br 150 · Eggs (12) Br 210 · Fresh milk 1L Br 90 · Bread loaf Br 45 · Bottled water 2L Br 40 · Laundry soap Br 60 (one product marked **out of stock**).
 - **History:** ~20 past orders over the last 14 days across both customers in mixed statuses, with payments and one outstanding credit balance (Dawit owes Br 865), so the dashboard, sales and customer history look alive.
 - `npm run demo:reset` restores this exact state in under 30 seconds. **Run it before every presentation.**
@@ -454,6 +460,7 @@ suk-link/
 
 - **Unit (Vitest):** money utils, cart store (add, increase, decrease, remove, per-shop totals), order status transition table, outbox ordering, retry and idempotency, the i18n key and placeholder parity test across all six locales, `formatMoney` and `formatDate` for every locale × market, plan-price changes not altering existing subscriptions, the method picker showing only methods enabled for both the market and the shop.
 - **RLS tests:** as described in Section 6.
+- **Ledger invariant tests:** random sequences of accept, pay, partial pay, cancel and retry (Section 17.6). Also payment allocation for balance payments and concurrent `place_order` order numbers.
 - **E2E (Playwright, mobile viewport Pixel 7 + desktop):**
   - `demo-journey.spec.ts`: Section 3 steps 1–7 with two browser contexts, asserting totals (e.g. 2× Sugar + 1× Cooking oil = Br 970.00), realtime arrival of the order on the shop context within 3s, status timeline updates, payment status `paid`, ledger balance values.
   - `offline-order.spec.ts`: set the customer context offline, add to cart, place the order (shown as queued), go online, the order reaches the shop exactly **once**.
@@ -472,13 +479,13 @@ suk-link/
 | **M2** | Design system components + app layouts + i18n (all six locales, Ge'ez and Latin fonts) + theme switch | A component gallery route `/dev/ui` (dev only) shows all components in both themes and languages. |
 | **M3** | Auth: welcome, register (role choice), login, logout (with local wipe), forgot password, role guards, profile | A customer and a shop owner can each register and land on their own home pages. Wrong-role URLs redirect. `auth-switch.spec.ts` passes. |
 | **M4** | Shop owner: setup wizard (auto trial), shop profile, products CRUD with image upload and availability toggle | Products created on Device 2 appear on Device 1 in real time. |
-| **M5** | Customer: home, shop page, per-shop cart with steppers, checkout, `place_order` with the price-change dialog | The order is saved with correct totals, verified in the DB. |
+| **M5** | Customer: home, shop page, per-shop cart with steppers, checkout, `place_order` with the price-change dialog | The order is saved with correct totals, verified in the DB. Two simultaneous orders get different order numbers. |
 | **M6** | Orders: owner board + detail + transitions + realtime notifications (toast, sound, badge, bell, local notification); customer tracking timeline; cancel | Steps 3–4 work live across two sessions. |
-| **M7** | Payments + ledger: `PaymentProvider` interface, DemoProvider, Chapa (test), telebirr and CBE Birr via Chapa (direct adapters behind flags), method picker filtered by market and shop, payments-init and per-provider webhooks, confirmation screen, record cash payment, put on credit, customer detail ledger, balances screens, sales KPIs | Steps 5–6 work. Ledger sums are exact. |
-| **M8** | Subscription + reminders + admin dashboard + admin configuration (markets, payment methods, plans, settings) + support tickets | Step 7 works. An expired shop is hidden from customers. Changing the plan price in admin shows the new price on the shop's renewal screen. Activating the `KE` market works with no code change. |
-| **M9** | Offline sync engine (Dexie, outbox, pull, engine, sync pill, needs-attention sheet) + PWA service worker + image caching | `offline-order.spec.ts` passes. The app reloads offline and shows cached data. |
-| **M10** | Capacitor Android and iOS: config, icons, splash, safe areas, back button, camera, haptics, local notifications, deep link return | The app runs on an Android emulator and an iOS simulator and the full demo flow works on device. |
-| **M11** | Polish and hardening: empty, error and loading states everywhere, accessibility pass, Lighthouse targets, `DEMO_SCRIPT.md`, `demo:reset`, full `demo-journey.spec.ts` green on mobile and desktop | All checklist items in Section 16 are ticked. |
+| **M7** | Payments + ledger: `PaymentProvider` interface, DemoProvider, Chapa (test), telebirr and CBE Birr via Chapa (direct adapters behind flags), method picker filtered by market and shop, payments-init and per-provider webhooks, confirmation screen, record cash payment, put on credit, customer detail ledger, balances screens, sales KPIs, walk-in customers and manual credit (17.1), pay-a-balance with oldest-first allocation (17.2), test-mode banner (17.5), ledger invariant tests (17.6), optional receipts (17.10) | Steps 5–6 work. Ledger sums are exact. |
+| **M8** | Subscription + status ticker (17.4) + reminders + admin dashboard + admin configuration (markets, payment methods, plans, settings) + support tickets | Step 7 works. An expired shop is hidden from customers. Changing the plan price in admin shows the new price on the shop's renewal screen. Activating the `KE` market works with no code change. |
+| **M9** | Offline sync engine (Dexie, outbox, pull, engine, sync pill, needs-attention sheet) + PWA service worker + image caching + offline product images (17.7) | `offline-order.spec.ts` passes. The app reloads offline and shows cached data. |
+| **M10** | Capacitor Android and iOS: config, icons, splash, safe areas, back button, camera, haptics, local notifications, deep link return, closed-app push as a stretch goal (17.8) | The app runs on an Android emulator and an iOS simulator and the full demo flow works on device. |
+| **M11** | Polish and hardening: empty, error and loading states everywhere, accessibility pass, Lighthouse targets, `DEMO_SCRIPT.md`, `demo:reset`, full `demo-journey.spec.ts` green on mobile and desktop, legal screens and account deletion, staging and production setup, error tracking and backups (17.11), recorded fallback demo video (17.12) | All checklist items in Section 16 are ticked. |
 
 ---
 
@@ -490,12 +497,14 @@ Advanced inventory and stock levels; analytics/BI; marketing campaigns; referral
 
 ## 16. Definition of done (pre-presentation checklist)
 
-- [ ] Every core feature (Section 4 A–D) works against the real backend. Nothing is mocked.
+- [ ] Every core feature (Section 4 A–D plus Section 17.1 and 17.2) works against the real backend. Nothing is mocked.
 - [ ] Customer and shop-owner sessions communicate in real time (order arrives in under 3s, status updates in under 3s).
 - [ ] Orders are saved and displayed accurately. Prices and totals are correct (server-recomputed, unit-tested).
 - [ ] Payment status is consistent everywhere (order list, order detail, ledger, customer balances, admin).
 - [ ] Sales and customer transaction histories are accessible and correct.
 - [ ] Switching accounts on the same device shows no stale or foreign data and no errors.
+- [ ] A walk-in customer's credit can be recorded and paid down, and the same balance is shown consistently on the shop and customer sides.
+- [ ] Terms acceptance and account deletion work. The test-mode banner shows whenever payments are in demo mode.
 - [ ] The app works offline for browsing, cart and order queueing, and syncs once without duplicates.
 - [ ] Installable PWA. Android and iOS builds run.
 - [ ] The UI is clean, consistent, responsive (360px → desktop), light and dark, all six languages (demo-path strings native-reviewed), and default market ET with configurable markets, plans and payment methods.
@@ -505,7 +514,24 @@ Advanced inventory and stock levels; analytics/BI; marketing campaigns; referral
 
 ---
 
-## 17. Working rules for the coding agent
+## 17. Additions found in review (build them in the milestone shown)
+
+1. **Walk-in customers and manual credit (M7).** Shops use credit mostly for people who are not on the app, and this is the paper notebook Suk Link replaces. A shop owner can add a customer by name and phone, record "goods on credit" for them (RPC `record_manual_charge`, a `charge` entry with a note, idempotent) and record payments. When someone later registers with the same phone number, link their account to the existing `shop_customers` row, so they see their balance and history. Ledger and balances are keyed by `shop_customer_id`.
+2. **Customer pays an outstanding balance (M7).** From My balances, the customer can pay any amount up to the balance through the normal method picker (`payments.purpose = 'balance'`). **Allocation rule:** any payment without an `order_id` is applied to the shop customer's oldest unpaid accepted orders first. `recompute_order_payment_status` follows this rule, and the allocation is covered by tests.
+3. **Order numbers (M1).** Use a `shop_order_counters(shop_id, last_number)` table updated with a row lock inside `place_order`, so two simultaneous orders never get the same number. The unique constraint `unique(shop_id, order_number)` is the safety net.
+4. **Subscription status ticker (M8).** The hourly cron job also moves subscriptions through trial → expired, active → grace → expired using the plan's `grace_days`, writes the notifications and logs the changes. Nothing relies on someone opening the app for a status to change.
+5. **Test-mode banner (M7).** When `PAYMENT_MODE=demo`, show a persistent "Test payments, no real money moves" ribbon and label the provider in the receipt. The presentation must never imply live charges.
+6. **Ledger invariant tests (M7).** Add database-level tests with random sequences of accept, pay, partially pay, cancel and retry the same request. They must always hold: balance = sum of entries, no overpayment, `payment_status` matches the ledger, and a duplicated idempotency key creates nothing new.
+7. **Offline product images (M9).** An image chosen offline is stored as a blob in Dexie and uploaded first when the outbox drains. The `upsert_product` op then carries the final URL.
+8. **Notifications when the app is closed (M10, stretch).** Realtime only reaches a running app, so a shop owner with the app closed misses orders. Add FCM (native) and Web Push (PWA) through an Edge Function triggered by the `notifications` insert. If it is not done before the presentation, say so honestly in the demo.
+9. **iOS subscription payments (decision needed before an App Store release).** Apple may require in-app purchase for paid software access, even for shop owners. Check the current App Store review guidelines before submitting. Options are to renew through the web or an admin-recorded payment on the iOS build, or to use IAP. Android is unaffected. This does not affect the demo.
+10. **Receipts and statements (M7, optional).** A shareable order receipt and a customer statement (image or PDF via the Capacitor Share plugin) so a shop can settle credit disputes over WhatsApp.
+11. **Operations (M11).** Separate staging and production Supabase projects, scheduled database backups, Sentry (or similar) for client and Edge Function errors with no personal data in the payload, and a `/health` check for the payment webhook.
+12. **Demo safety net (M11).** Record a screen capture of the working demo flow as a fallback, and run `demo:reset` and the E2E test on the **exact presentation devices and network** the day before.
+
+---
+
+## 18. Working rules for the coding agent
 
 1. Work one milestone at a time. At the end of each, run lint, typecheck, tests and build, then report what was built and the test results.
 2. Never fake functionality to make a screen look finished. If a dependency is missing (e.g. no Chapa keys), use the DemoProvider path. That path is real code, not a mock.
