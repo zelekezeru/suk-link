@@ -51,7 +51,7 @@ export function WelcomePage() {
           )}
         </div>
 
-        <div className="flex flex-wrap gap-1.5" role="group" aria-label="Language options">
+        <div className="flex flex-wrap gap-1.5" role="group" aria-label={t('ui.auth.languageOptions')}>
           {enabledLocales.map((loc) => (
             <button
               key={loc.code}
@@ -136,6 +136,8 @@ export function WelcomePage() {
           {t('welcome.logIn')}
         </Button>
 
+        {/* Static-demo presenter panel: English-only by design. */}
+        {/* eslint-disable no-restricted-syntax */}
         {IS_STATIC_DEMO && (
           <div className="pt-2">
             <Card className="p-3.5 bg-surface-muted/70 space-y-2 border-primary/25">
@@ -161,6 +163,7 @@ export function WelcomePage() {
             </Card>
           </div>
         )}
+        {/* eslint-enable no-restricted-syntax */}
       </div>
     </div>
   );
@@ -168,6 +171,8 @@ export function WelcomePage() {
 
 export function LoginPage() {
   const { t } = useTranslation();
+  const marketCode = useUiStore((s) => s.marketCode);
+  const { market } = useMarket(marketCode);
   const navigate = useNavigate();
   const login = useSessionStore((s) => s.login);
   const loading = useSessionStore((s) => s.loading);
@@ -221,7 +226,7 @@ export function LoginPage() {
             data-testid="login-identifier"
             value={identifier}
             onChange={(e) => setIdentifier(e.target.value)}
-            placeholder="customer@demo.suklink.et or +2519..."
+            placeholder={t('ui.auth.identifierPlaceholder', { code: market.phone_country_code })}
             required
           />
 
@@ -273,7 +278,8 @@ export function LoginPage() {
         </form>
       </Card>
 
-      {/* Quick Demo Account buttons for smooth testing & presentation */}
+      {/* Quick Demo Account buttons for smooth testing & presentation (English-only presenter aid) */}
+      {/* eslint-disable no-restricted-syntax */}
       <Card className="space-y-2.5 bg-surface-muted/60">
         <div className="text-xs font-bold text-muted uppercase tracking-wider">
           {t('auth.demoAccountsTitle')}
@@ -326,6 +332,7 @@ export function LoginPage() {
           </Button>
         </div>
       </Card>
+      {/* eslint-enable no-restricted-syntax */}
     </div>
   );
 }
@@ -429,7 +436,7 @@ export function RegisterPage() {
             data-testid="register-fullname"
             value={fullName}
             onChange={(e) => setFullName(e.target.value)}
-            placeholder="Selam Tesfaye"
+            placeholder={t('ui.examples.fullName')}
             required
           />
 

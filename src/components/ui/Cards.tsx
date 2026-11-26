@@ -93,7 +93,7 @@ export function ProductCard({
           )}
           {product._pending && (
             <span
-              title="Pending sync"
+              title={t('ui.common.pendingSync')}
               className="absolute top-2 right-2 bg-surface/90 p-1 rounded-pill text-warning shadow-soft1"
             >
               <Clock className="w-3.5 h-3.5" />

@@ -220,7 +220,9 @@ export function startSyncEngine(): () => void {
             await tbl.put({ ...clean, _pending: false });
           }
         }
-        await pullTableDelta(db, parsed.table as SyncedTableName, true, user);
+        // Delta pull (§7.2): the record is already applied above; this catches siblings
+        // written in the same transaction without refetching the whole table.
+        await pullTableDelta(db, parsed.table as SyncedTableName, false, user);
         for (const listener of realtimeListeners) {
           listener({
             table: parsed.table,

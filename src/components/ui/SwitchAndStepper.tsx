@@ -1,4 +1,5 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import * as SwitchPrimitive from '@radix-ui/react-switch';
 import { Minus, Plus } from 'lucide-react';
 import { cn } from './Button';
@@ -69,6 +70,7 @@ export function Stepper({
   disabled = false,
   className,
 }: StepperProps) {
+  const { t } = useTranslation();
   return (
     <div
       className={cn(
@@ -80,7 +82,7 @@ export function Stepper({
         type="button"
         onClick={onDecrement}
         disabled={disabled || value <= min}
-        aria-label="Decrease quantity"
+        aria-label={t('ui.common.decrease')}
         className="w-9 h-9 min-w-[36px] min-h-[36px] inline-flex items-center justify-center rounded-pill text-foreground hover:bg-surface transition-colors disabled:opacity-40"
       >
         <Minus className="w-4 h-4" />
@@ -95,7 +97,7 @@ export function Stepper({
         type="button"
         onClick={onIncrement}
         disabled={disabled || value >= max}
-        aria-label="Increase quantity"
+        aria-label={t('ui.common.increase')}
         className="w-9 h-9 min-w-[36px] min-h-[36px] inline-flex items-center justify-center rounded-pill bg-primary text-primary-foreground hover:bg-primary-hover transition-colors disabled:opacity-40"
       >
         <Plus className="w-4 h-4" />

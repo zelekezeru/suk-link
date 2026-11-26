@@ -1,6 +1,7 @@
 import React from 'react';
 import * as Dialog from '@radix-ui/react-dialog';
 import { useTranslation } from 'react-i18next';
+import { IS_TEST_PAYMENTS } from '../../lib/supabase';
 import {
   CheckCircle2,
   Circle,
@@ -112,6 +113,20 @@ export function SyncStatusPill({ onClickNeedsAttention }: { onClickNeedsAttentio
   );
 }
 
+export function TestPaymentsRibbon() {
+  const { t } = useTranslation();
+  if (!IS_TEST_PAYMENTS) return null;
+  return (
+    <div
+      role="note"
+      data-testid="test-payments-ribbon"
+      className="bg-info-tint text-info px-4 py-1 text-xs font-semibold text-center border-b border-info/20"
+    >
+      {t('ui.payments.testRibbon')}
+    </div>
+  );
+}
+
 export function OfflineBanner() {
   const { t } = useTranslation();
   const isOnline = useUiStore((s) => s.isOnline);
@@ -198,6 +213,7 @@ export interface BottomSheetProps {
 }
 
 export function BottomSheet({ open, onOpenChange, title, children }: BottomSheetProps) {
+  const { t } = useTranslation();
   return (
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
       <Dialog.Portal>
@@ -208,7 +224,7 @@ export function BottomSheet({ open, onOpenChange, title, children }: BottomSheet
             <Dialog.Close asChild>
               <button
                 type="button"
-                aria-label="Close"
+                aria-label={t('app.close')}
                 className="w-9 h-9 rounded-pill inline-flex items-center justify-center text-muted hover:bg-surface-muted"
               >
                 <X className="w-5 h-5" />
@@ -229,6 +245,7 @@ export interface ImagePickerProps {
 }
 
 export function ImagePicker({ value, onChange, label }: ImagePickerProps) {
+  const { t } = useTranslation();
   const fileInputRef = React.useRef<HTMLInputElement>(null);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -249,7 +266,7 @@ export function ImagePicker({ value, onChange, label }: ImagePickerProps) {
       <div className="flex items-center gap-3">
         <div className="w-16 h-16 rounded-card bg-surface-muted border border-border overflow-hidden flex items-center justify-center shrink-0">
           {value ? (
-            <img src={resolveAssetUrl(value)} alt="Preview" className="w-full h-full object-cover" />
+            <img src={resolveAssetUrl(value)} alt={t('ui.common.preview')} className="w-full h-full object-cover" />
           ) : (
             <Camera className="w-6 h-6 text-subtle" />
           )}
@@ -269,7 +286,7 @@ export function ImagePicker({ value, onChange, label }: ImagePickerProps) {
             onClick={() => fileInputRef.current?.click()}
           >
             <Camera className="w-4 h-4" />
-            <span>Upload Photo</span>
+            <span>{t('ui.common.uploadPhoto')}</span>
           </Button>
         </div>
       </div>

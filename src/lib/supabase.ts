@@ -2,6 +2,11 @@ import type { UserRole, LocaleCode } from './database.types';
 
 export const IS_STATIC_DEMO = import.meta.env.VITE_STATIC_DEMO === 'true';
 
+// Build Plan §17.5: never imply real charges. The ribbon shows unless the build is
+// explicitly live, so a missing variable errs toward the honest label.
+export const IS_TEST_PAYMENTS =
+  IS_STATIC_DEMO || import.meta.env.VITE_PAYMENT_MODE !== 'live';
+
 export interface SessionUser {
   id: string;
   email: string | null;
@@ -199,8 +204,9 @@ export async function apiCallRpc<T = any>(
 }
 
 export async function apiInitPayment(input: {
-  purpose: 'order' | 'subscription';
+  purpose: 'order' | 'subscription' | 'balance';
   order_id?: string | null;
+  amount_minor?: number | null;
   subscription_id?: string | null;
   shop_id: string;
   method_code: string;

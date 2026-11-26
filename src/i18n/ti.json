@@ -243,5 +243,100 @@
     "themeLight": "ብሩህ",
     "themeDark": "ጸልማት",
     "defaultAddress": "ቀዋሚ ናይ መብጽሒ ኣድራሻ"
+  },
+  "ui": {
+    "common": {
+      "dismiss": "ኣወግድ",
+      "view": "ርአ",
+      "viewAll": "ኩሉ ርአ",
+      "manage": "ኣመሓድር",
+      "details": "ዝርዝር",
+      "open": "ክፈት",
+      "pendingSync": "ንምስምማዕ ይጽበ ኣሎ",
+      "decrease": "ብዝሒ ኣጉድል",
+      "increase": "ብዝሒ ወስኽ",
+      "preview": "ቅድመ ርእይቶ",
+      "uploadPhoto": "ስእሊ ጸዓን",
+      "photo": "ስእሊ"
+    },
+    "sync": {
+      "attentionTitle": "ኣቓልቦ ዘድልዮም ለውጥታት",
+      "allSynced": "ኩሉ ተሰማሚዑ ኣሎ።"
+    },
+    "layout": {
+      "shopPortal": "ዋና ድኳን",
+      "adminConsole": "ሱቅ ሊንክ ኣመሓዳሪ"
+    },
+    "customer": {
+      "noShopsTitle": "ዝተረኽበ ድኳን የለን",
+      "noShopsBody": "ካልእ ስም ድኳን ወይ ኣቕሓ ፈትን።"
+    },
+    "cart": {
+      "addressRequired": "ናይ ምብጻሕ ኣድራሻኻ ኣእቱ",
+      "pricesChanged": "ገለ ዋጋታት ተቐይሮም። ቅድሚ ምእዛዝካ ዘንቢልካ ርአ።",
+      "removeItem": "ኣቕሓ ኣወግድ",
+      "notePlaceholder": "ንድኳን መምርሒ እንተሃልዩ…",
+      "newTotal": "ሓድሽ ድምር"
+    },
+    "orders": {
+      "cancelled": "ትእዛዝ ተሰሪዙ",
+      "items": "ኣቕሑ",
+      "order": "ትእዛዝ",
+      "orderNumber": "ትእዛዝ {{number}}"
+    },
+    "notifications": {
+      "title": "መፍለጢታት",
+      "markAllRead": "ኩሉ ከም ዝተነበበ ምልክት ግበር",
+      "empty": "ክሳብ ሕጂ መፍለጢ የለን።"
+    },
+    "payments": {
+      "cashSelected": "ኣብ ምቕባል ብጥረ ገንዘብ ምኽፋል ተመሪጹ",
+      "subscriptionRenewed": "ምዝገባ ተሓዲሱ",
+      "declined": "ክፍሊት ተነጺጉ",
+      "selectedGateway": "ዝተመርጸ መንገዲ ክፍሊት",
+      "paymentId": "መለለዪ ክፍሊት፦ {{id}}",
+      "testRibbon": "ናይ ፈተና ክፍሊት · ሓቀኛ ገንዘብ ኣይንቀሳቐስን",
+      "testReceipt": "ናይ ፈተና ክፍሊት · {{provider}}"
+    },
+    "shop": {
+      "openingTime": "ሰዓት ምኽፋት",
+      "closingTime": "ሰዓት ምዕጻው",
+      "logo": "ኣርማ ድኳን",
+      "cover": "ስእሊ ሽፋን",
+      "orderAccepted": "ትእዛዝ ተቐባልነት ረኺቡ",
+      "noPendingOrders": "ሕጂ ሓድሽ ትእዛዝ የለን።",
+      "noBalances": "ዕዳ ዘለዎ ዓሚል የለን።",
+      "searchOrders": "ቁጽሪ ትእዛዝ ወይ ዓሚል ድለ…",
+      "noOrdersInTab": "ኣብዚ ክሳብ ሕጂ ትእዛዝ የለን",
+      "statusQueued": "ለውጢ ተዓቂቡ። ኢንተርነት ምስ ተመልሰ ክለኣኽ እዩ።",
+      "orderOnCredit": "ትእዛዝ ብልቓሕ ተመዝጊቡ",
+      "paymentRecorded": "ክፍሊት ተመዝጊቡ",
+      "cashRecorded": "ክፍሊት ጥረ ገንዘብ ተመዝጊቡ",
+      "noteLabel": "መዘኻኸሪ፦",
+      "orderItems": "ኣቕሑ ትእዛዝ",
+      "reason": "ምኽንያት",
+      "confirmReject": "ትእዛዝ ንጸግ",
+      "noCustomers": "ክሳብ ሕጂ ዓሚል የለን",
+      "partialPaymentPlaceholder": "ብጥረ ገንዘብ ዝተኸፍለ መጠን",
+      "remaining": "ዝተረፈ",
+      "noRenewals": "ክሳብ ሕጂ ክፍሊት ምሕዳስ የለን።"
+    },
+    "support": {
+      "ticketSubmitted": "ሕቶ ደገፍ ተላኢኹ",
+      "noTickets": "ክሳብ ሕጂ ሕቶ ደገፍ የለን።",
+      "adminReply": "መልሲ ጉጅለ ደገፍ፦ {{reply}}"
+    },
+    "profile": {
+      "avatar": "ስእሊ መግለጺ"
+    },
+    "auth": {
+      "languageOptions": "ኣማራጺታት ቋንቋ",
+      "identifierPlaceholder": "ኢመይል ወይ ቴሌፎን ({{code}}…)"
+    },
+    "examples": {
+      "fullName": "ሰላም ተስፋይ",
+      "shopName": "ኣበበ ሚኒ ማርኬት",
+      "address": "ቦሌ መድሃኔኣለም፣ ገዛ 142"
+    }
   }
 }

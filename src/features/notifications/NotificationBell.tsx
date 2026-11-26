@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { Bell, CheckCheck } from 'lucide-react';
 import { toast } from 'sonner';
@@ -67,6 +68,7 @@ export function useRealtimeNotifications() {
 }
 
 export function NotificationBell() {
+  const { t } = useTranslation();
   const { notifications, unreadCount, markAllRead } = useRealtimeNotifications();
   const [open, setOpen] = useState(false);
 
@@ -75,7 +77,7 @@ export function NotificationBell() {
       <button
         type="button"
         onClick={() => setOpen(true)}
-        aria-label="Notifications"
+        aria-label={t('ui.notifications.title')}
         data-testid="notification-bell"
         className="relative w-10 h-10 rounded-pill inline-flex items-center justify-center text-foreground hover:bg-surface-muted transition-colors"
       >
@@ -90,19 +92,19 @@ export function NotificationBell() {
         )}
       </button>
 
-      <BottomSheet open={open} onOpenChange={setOpen} title="Notifications">
+      <BottomSheet open={open} onOpenChange={setOpen} title={t('ui.notifications.title')}>
         <div className="space-y-3">
           {unreadCount > 0 && (
             <div className="flex justify-end">
               <Button variant="ghost" size="sm" onClick={markAllRead}>
                 <CheckCheck className="w-4 h-4" />
-                <span>Mark all read</span>
+                <span>{t('ui.notifications.markAllRead')}</span>
               </Button>
             </div>
           )}
 
           {notifications.length === 0 ? (
-            <p className="text-sm text-muted py-6 text-center">No notifications yet.</p>
+            <p className="text-sm text-muted py-6 text-center">{t('ui.notifications.empty')}</p>
           ) : (
             <div className="space-y-2">
               {notifications.map((n) => (

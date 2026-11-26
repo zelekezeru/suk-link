@@ -97,7 +97,34 @@ export async function pullTableDelta(
     });
   }
 
+  if (CUSTOMER_LINKED_TABLES.has(tableName)) {
+    await pullProfilesForNewCustomers(db, rows, cycleUser);
+  }
+
   return rows.length;
+}
+
+// A customer's profile becomes visible to a shop owner (via RLS) when they first
+// order, but the profile's updated_at is old, so a delta pull never fetches it.
+// When rows reference a customer we have no profile for, do one full profiles pull.
+const CUSTOMER_LINKED_TABLES = new Set<SyncedTableName>(['orders', 'shop_customers', 'ledger_entries']);
+const profileLookupsAttempted = new Set<string>();
+
+async function pullProfilesForNewCustomers(
+  db: SukLinkDexie,
+  rows: Array<{ customer_id?: string | null }>,
+  cycleUser?: SessionUser | null
+): Promise<void> {
+  const ids = Array.from(
+    new Set(rows.map((r) => r.customer_id).filter((id): id is string => Boolean(id)))
+  );
+  if (ids.length === 0 || !db.isOpen()) return;
+  const known = await db.profiles.bulkGet(ids);
+  const missing = ids.filter((id, i) => !known[i] && !profileLookupsAttempted.has(`${db.name}:${id}`));
+  if (missing.length === 0) return;
+  // Remember attempts so ids with no visible profile do not trigger a pull every time.
+  for (const id of missing) profileLookupsAttempted.add(`${db.name}:${id}`);
+  await pullTableDelta(db, 'profiles', true, cycleUser);
 }
 
 export async function pullAllSyncedTables(

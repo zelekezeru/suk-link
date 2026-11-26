@@ -8,6 +8,7 @@ import { startSyncEngine, runSyncCycle } from './lib/sync/engine';
 import { initNativeLifecycle } from './lib/native';
 import { applyThemeToDom, useUiStore } from './stores/ui';
 import { IS_STATIC_DEMO } from './lib/supabase';
+import { TestPaymentsRibbon } from './components/ui/FeedbackAndSheets';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -59,6 +60,8 @@ export function App() {
     return stopSync;
   }, [demoReady]);
 
+  // Static-demo boot screen: shown before i18n and the seeded database are ready.
+  /* eslint-disable no-restricted-syntax */
   if (!demoReady) {
     return (
       <div className="min-h-screen bg-background text-foreground flex items-center justify-center p-6">
@@ -91,9 +94,11 @@ export function App() {
       </div>
     );
   }
+  /* eslint-enable no-restricted-syntax */
 
   return (
     <QueryClientProvider client={queryClient}>
+      <TestPaymentsRibbon />
       <RouterProvider router={appRouter} />
       <Toaster position="top-center" richColors closeButton />
     </QueryClientProvider>

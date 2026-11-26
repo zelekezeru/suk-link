@@ -85,7 +85,7 @@ export function ProfilePage() {
       <Card>
         <form onSubmit={handleSave} className="space-y-4">
           <ImagePicker
-            label="Avatar"
+            label={t('ui.profile.avatar')}
             value={avatarUrl}
             onChange={(url) => setAvatarUrl(url)}
           />
@@ -104,7 +104,7 @@ export function ProfilePage() {
             label={t('profile.defaultAddress')}
             value={defaultAddress}
             onChange={(e) => setDefaultAddress(e.target.value)}
-            placeholder="Bole Medhanialem, House 142"
+            placeholder={t('ui.examples.address')}
           />
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -148,7 +148,7 @@ export function ProfilePage() {
           size="sm"
           onClick={() => navigate(user?.role === 'shop_owner' ? '/s/support' : '/c/support')}
         >
-          Open
+          {t('ui.common.open')}
         </Button>
       </Card>
     </div>
@@ -197,7 +197,7 @@ export function SupportPage() {
       await pullTableDelta(db, 'support_tickets');
       setSubject('');
       setMessage('');
-      toast.success('Support ticket submitted');
+      toast.success(t('ui.support.ticketSubmitted'));
     } catch (err: any) {
       toast.error(err?.message || 'Failed to submit ticket');
     } finally {
@@ -275,7 +275,7 @@ export function SupportPage() {
       <Card className="space-y-3">
         <h2 className="text-base font-bold">{t('support.myTickets')}</h2>
         {tickets.length === 0 ? (
-          <p className="text-xs text-muted">No support tickets yet.</p>
+          <p className="text-xs text-muted">{t('ui.support.noTickets')}</p>
         ) : (
           <div className="space-y-2">
             {tickets.map((tk) => (
@@ -289,7 +289,7 @@ export function SupportPage() {
                 <p className="text-xs text-muted">{tk.message}</p>
                 {tk.admin_reply && (
                   <p className="text-xs text-primary font-medium pt-1">
-                    Admin reply: {tk.admin_reply}
+                    {t('ui.support.adminReply', { reply: tk.admin_reply })}
                   </p>
                 )}
               </div>

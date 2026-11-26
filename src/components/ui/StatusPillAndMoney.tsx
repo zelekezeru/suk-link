@@ -68,7 +68,7 @@ export function StatusPill({
         className
       )}
     >
-      {pendingSync && <Clock className="w-3 h-3 animate-pulse" aria-label="Pending sync" />}
+      {pendingSync && <Clock className="w-3 h-3 animate-pulse" aria-label={t('ui.common.pendingSync')} />}
       <span>{pendingSync ? t('status.waitingConnection') : t(`status.${status}`)}</span>
     </span>
   );

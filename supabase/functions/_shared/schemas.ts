@@ -4,8 +4,9 @@
 import { z } from 'zod';
 
 export const PaymentInitSchema = z.object({
-  purpose: z.enum(['order', 'subscription']).default('order'),
+  purpose: z.enum(['order', 'subscription', 'balance']).default('order'),
   order_id: z.string().uuid().optional().nullable(),
+  amount_minor: z.number().int().positive().optional().nullable(),
   subscription_id: z.string().uuid().optional().nullable(),
   shop_id: z.string().uuid(),
   method_code: z.enum(['chapa', 'telebirr', 'cbe_birr', 'cash', 'credit', 'demo']),

@@ -243,5 +243,100 @@
     "themeLight": "Light",
     "themeDark": "Dark",
     "defaultAddress": "Default delivery address"
+  },
+  "ui": {
+    "common": {
+      "dismiss": "Dismiss",
+      "view": "View",
+      "viewAll": "View all",
+      "manage": "Manage",
+      "details": "Details",
+      "open": "Open",
+      "pendingSync": "Waiting to sync",
+      "decrease": "Decrease quantity",
+      "increase": "Increase quantity",
+      "preview": "Preview",
+      "uploadPhoto": "Upload photo",
+      "photo": "Photo"
+    },
+    "sync": {
+      "attentionTitle": "Changes that need attention",
+      "allSynced": "Everything is synced."
+    },
+    "layout": {
+      "shopPortal": "Shop owner",
+      "adminConsole": "Suk Link Admin"
+    },
+    "customer": {
+      "noShopsTitle": "No shops found",
+      "noShopsBody": "Try another shop or product name."
+    },
+    "cart": {
+      "addressRequired": "Enter your delivery address",
+      "pricesChanged": "Some prices changed. Check your cart before ordering.",
+      "removeItem": "Remove item",
+      "notePlaceholder": "Any instructions for the shop…",
+      "newTotal": "New total"
+    },
+    "orders": {
+      "cancelled": "Order cancelled",
+      "items": "Items",
+      "order": "Order",
+      "orderNumber": "Order {{number}}"
+    },
+    "notifications": {
+      "title": "Notifications",
+      "markAllRead": "Mark all read",
+      "empty": "No notifications yet."
+    },
+    "payments": {
+      "cashSelected": "Cash on pickup or delivery selected",
+      "subscriptionRenewed": "Subscription renewed",
+      "declined": "Payment declined",
+      "selectedGateway": "Selected gateway",
+      "paymentId": "Payment ID: {{id}}",
+      "testRibbon": "Test payments · no real money moves",
+      "testReceipt": "Test payment · {{provider}} provider"
+    },
+    "shop": {
+      "openingTime": "Opening time",
+      "closingTime": "Closing time",
+      "logo": "Shop logo",
+      "cover": "Cover image",
+      "orderAccepted": "Order accepted",
+      "noPendingOrders": "No new orders right now.",
+      "noBalances": "No customers owe you money.",
+      "searchOrders": "Search order number or customer…",
+      "noOrdersInTab": "No orders here yet",
+      "statusQueued": "Change saved. It will send when you're back online.",
+      "orderOnCredit": "Order put on credit",
+      "paymentRecorded": "Payment recorded",
+      "cashRecorded": "Cash payment recorded",
+      "noteLabel": "Note:",
+      "orderItems": "Order items",
+      "reason": "Reason",
+      "confirmReject": "Reject order",
+      "noCustomers": "No customers yet",
+      "partialPaymentPlaceholder": "Amount paid in cash",
+      "remaining": "Remaining",
+      "noRenewals": "No renewal payments yet."
+    },
+    "support": {
+      "ticketSubmitted": "Support ticket sent",
+      "noTickets": "No support tickets yet.",
+      "adminReply": "Reply from support: {{reply}}"
+    },
+    "profile": {
+      "avatar": "Profile photo"
+    },
+    "auth": {
+      "languageOptions": "Language options",
+      "identifierPlaceholder": "Email or phone ({{code}}…)"
+    },
+    "examples": {
+      "fullName": "Selam Tesfaye",
+      "shopName": "Abebe Mini Market",
+      "address": "Bole Medhanialem, House 142"
+    }
   }
 }

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { useNavigate, useParams, Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useLiveQuery } from 'dexie-react-hooks';
@@ -31,12 +31,21 @@ import { useMarket } from '../../lib/useMarket';
 import { resolveAssetUrl } from '../../lib/images';
 import { getUserDb } from '../../lib/sync/db';
 import { enqueueOutboxMutation } from '../../lib/sync/outbox';
-import { refreshOutboxBadges, subscribeRealtimeEvents } from '../../lib/sync/engine';
-import { pullTableDelta } from '../../lib/sync/pull';
-import { apiCallRpc, apiFetchTable } from '../../lib/supabase';
+import { refreshOutboxBadges } from '../../lib/sync/engine';
+import { pullTableDelta, type SyncedTableName } from '../../lib/sync/pull';
+import { useFreshTables } from '../../lib/sync/useFreshTables';
+import { apiCallRpc } from '../../lib/supabase';
 import { triggerHapticImpact } from '../../lib/native';
 import { PayOrderSheet } from '../payments/PaymentFlows';
-import { computeCartTotals } from '../../lib/money';
+import { computeCartTotals, formatMoney } from '../../lib/money';
+
+const SHOP_PAGE_TABLES: readonly SyncedTableName[] = ['shops', 'products'];
+const ORDER_DETAIL_TABLES: readonly SyncedTableName[] = [
+  'orders',
+  'order_items',
+  'order_events',
+  'payments',
+];
 
 function computeShopCartSummary(cart: { items: { unit_price_minor: number; quantity: number }[] } | undefined) {
   if (!cart || cart.items.length === 0) {
@@ -59,6 +68,8 @@ export function CustomerHomePage() {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const user = useSessionStore((s) => s.user);
+  const locale = useUiStore((s) => s.locale);
+  const { currency } = useMarket(user?.market_code);
   const db = getUserDb(user?.id || 'guest');
   const [search, setSearch] = useState('');
 
@@ -119,24 +130,23 @@ export function CustomerHomePage() {
         {shopsWithDebt.map((sh) => {
           const owed = balanceByShop.get(sh.id) || 0;
           return (
-            <div
+            <button
+              type="button"
               key={sh.id}
               onClick={() => navigate('/c/balances')}
-              role="button"
-              tabIndex={0}
-              className="p-3.5 rounded-card bg-warning-tint border border-warning/40 flex items-center justify-between gap-3 cursor-pointer"
+              className="w-full text-left p-3.5 rounded-card bg-warning-tint border border-warning/40 flex items-center justify-between gap-3 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
             >
-              <div className="flex items-center gap-2.5 text-sm font-semibold text-amber-900 dark:text-amber-200">
+              <span className="flex items-center gap-2.5 text-sm font-semibold text-amber-900 dark:text-amber-200">
                 <Wallet className="w-4 h-4 shrink-0" />
                 <span>
                   {t('customer.youOwe', {
-                    amount: `Br ${(owed / 100).toFixed(2)}`,
+                    amount: formatMoney(owed, currency, locale),
                     shop: sh.name,
                   })}
                 </span>
-              </div>
-              <span className="text-xs font-bold underline">View</span>
-            </div>
+              </span>
+              <span className="text-xs font-bold underline">{t('ui.common.view')}</span>
+            </button>
           );
         })}
 
@@ -174,8 +184,8 @@ export function CustomerHomePage() {
         {filteredShops.length === 0 ? (
           <EmptyState
             icon={<Store className="w-6 h-6" />}
-            title="No shops found"
-            description="Try searching for another neighborhood shop or product."
+            title={t('ui.customer.noShopsTitle')}
+            description={t('ui.customer.noShopsBody')}
           />
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -199,71 +209,18 @@ export function CustomerShopPage() {
   const navigate = useNavigate();
   const user = useSessionStore((s) => s.user);
   const userId = user?.id;
-  const userRole = user?.role;
-  const userEmail = user?.email;
   const db = getUserDb(userId || 'guest');
 
-  const [liveShop, setLiveShop] = useState<any | null>(null);
-  const [liveProducts, setLiveProducts] = useState<any[]>([]);
-
-  React.useEffect(() => {
-    if (!shopId || !userId || !userRole) return;
-    let active = true;
-    const authUser = {
-      id: userId,
-      role: userRole,
-      email: userEmail || null,
-      phone: null,
-      full_name: '',
-      locale: 'en' as const,
-      market_code: 'ET',
-    };
-
-    // Load cached from Dexie immediately (for offline support)
-    db.shops.get(shopId).then((s) => {
-      if (active && s) setLiveShop((prev: any) => prev || s);
-    }).catch(() => {});
-    db.products.toArray().then((list) => {
-      if (active && list.length > 0) setLiveProducts((prev) => (prev.length > 0 ? prev : list));
-    }).catch(() => {});
-
-    const syncShopAndProducts = async () => {
-      if (navigator.onLine) {
-        try {
-          const [shopsData, prodsData] = await Promise.all([
-            apiFetchTable<any>('shops', undefined, authUser),
-            apiFetchTable<any>('products', undefined, authUser),
-          ]);
-          if (!active) return;
-          const foundShop = shopsData.find((s: any) => s.id === shopId);
-          if (foundShop) setLiveShop(foundShop);
-          setLiveProducts(prodsData);
-          if (db.isOpen()) {
-            await db.shops.bulkPut(shopsData.filter((s: any) => !s.deleted_at));
-            await db.products.bulkPut(prodsData.filter((p: any) => !p.deleted_at));
-          }
-        } catch {
-          // ignore offline
-        }
-      }
-    };
-    void syncShopAndProducts();
-    const unsub = subscribeRealtimeEvents((evt) => {
-      if (evt.table === 'products' || evt.table === 'shops') {
-        void syncShopAndProducts();
-      }
-    });
-    const timer = window.setInterval(syncShopAndProducts, 1000);
-    return () => {
-      active = false;
-      unsub();
-      window.clearInterval(timer);
-    };
-  }, [shopId, userId, userRole, userEmail, db]);
-
-  const shop = liveShop;
-  const products = liveProducts
-    .filter((p) => p.shop_id === shopId && !p.deleted_at)
+  // Opens on fresh data; live updates arrive through the sync engine into Dexie.
+  useFreshTables(SHOP_PAGE_TABLES, Boolean(shopId));
+  const shop = useLiveQuery(async () => (shopId ? db.shops.get(shopId) : undefined), [shopId, db]);
+  const shopProducts =
+    useLiveQuery(
+      async () => (shopId ? db.products.where('shop_id').equals(shopId).toArray() : []),
+      [shopId, db]
+    ) || [];
+  const products = shopProducts
+    .filter((p) => !p.deleted_at)
     .sort((a, b) => a.sort_order - b.sort_order || a.name.localeCompare(b.name));
 
   const { currency } = useMarket(shop?.market_code);
@@ -462,7 +419,7 @@ export function CustomerCartPage() {
   const handlePlaceOrder = async (overrideExpectedTotalMinor?: number) => {
     if (!user || !shopId) return;
     if (cart.fulfilment === 'delivery' && !cart.delivery_address.trim()) {
-      toast.error('Please enter your delivery address');
+      toast.error(t('ui.cart.addressRequired'));
       return;
     }
 
@@ -530,7 +487,7 @@ export function CustomerCartPage() {
           updatePricesFromServer(shopId, parsed.items || []);
           setPriceDiffDialog(parsed);
         } catch {
-          toast.error('Product prices changed. Please review your cart.');
+          toast.error(t('ui.cart.pricesChanged'));
         }
       } else {
         toast.error(msg);
@@ -585,7 +542,7 @@ export function CustomerCartPage() {
               </div>
               <button
                 type="button"
-                aria-label="Remove item"
+                aria-label={t('ui.cart.removeItem')}
                 onClick={() => removeItem(shopId, item.product_id)}
                 className="text-subtle hover:text-danger p-1"
               >
@@ -633,7 +590,7 @@ export function CustomerCartPage() {
             label={t('customer.deliveryAddress')}
             value={cart.delivery_address}
             onChange={(e) => setDeliveryAddress(shopId, e.target.value)}
-            placeholder="Bole Medhanialem, House 142"
+            placeholder={t('ui.examples.address')}
             required
           />
         )}
@@ -642,7 +599,7 @@ export function CustomerCartPage() {
           label={t('customer.orderNote')}
           value={cart.note}
           onChange={(e) => setNote(shopId, e.target.value)}
-          placeholder="Any instructions for the shop owner…"
+          placeholder={t('ui.cart.notePlaceholder')}
         />
       </Card>
 
@@ -698,7 +655,7 @@ export function CustomerCartPage() {
                 </div>
               ))}
               <div className="flex justify-between font-bold text-sm pt-2 border-t border-border">
-                <span>New Total</span>
+                <span>{t('ui.cart.newTotal')}</span>
                 <Money amountMinor={priceDiffDialog.actual_total_minor} currency={currency} />
               </div>
             </div>
@@ -812,80 +769,23 @@ export function CustomerOrderDetailPage() {
   const navigate = useNavigate();
   const user = useSessionStore((s) => s.user);
   const userId = user?.id;
-  const userRole = user?.role;
-  const userEmail = user?.email;
   const db = getUserDb(userId || 'guest');
 
-  const [liveOrder, setLiveOrder] = useState<any | null>(null);
-  const [liveItems, setLiveItems] = useState<any[]>([]);
-  const [liveShop, setLiveShop] = useState<any | null>(null);
+  useFreshTables(ORDER_DETAIL_TABLES, Boolean(orderId));
 
-  React.useEffect(() => {
-    if (!orderId || !userId || !userRole) return;
-    let active = true;
-    const authUser = {
-      id: userId,
-      role: userRole,
-      email: userEmail || null,
-      phone: null,
-      full_name: '',
-      locale: 'en' as const,
-      market_code: 'ET',
-    };
-    const syncOrder = async () => {
-      if (navigator.onLine) {
-        try {
-          const [ordersData, itemsData, shopsData] = await Promise.all([
-            apiFetchTable<any>('orders', undefined, authUser),
-            apiFetchTable<any>('order_items', undefined, authUser),
-            apiFetchTable<any>('shops', undefined, authUser),
-          ]);
-          if (!active) return;
-          const foundOrder = ordersData.find((o: any) => o.id === orderId);
-          if (foundOrder) {
-            setLiveOrder(foundOrder);
-            const foundShop = shopsData.find((s: any) => s.id === foundOrder.shop_id);
-            if (foundShop) setLiveShop(foundShop);
-          }
-          setLiveItems(itemsData.filter((i: any) => i.order_id === orderId));
-          if (db.isOpen()) {
-            await db.orders.bulkPut(ordersData);
-            await db.order_items.bulkPut(itemsData);
-          }
-        } catch {
-          // ignore offline
-        }
-      }
-    };
-    void syncOrder();
-    const unsub = subscribeRealtimeEvents((evt) => {
-      if (evt.table === 'orders' || evt.table === 'payments') {
-        void syncOrder();
-      }
-    });
-    const timer = window.setInterval(syncOrder, 1000);
-    return () => {
-      active = false;
-      unsub();
-      window.clearInterval(timer);
-    };
-  }, [orderId, userId, userRole, userEmail, db]);
-
-  const dexieOrder = useLiveQuery(
+  const order = useLiveQuery(
     async () => (orderId ? db.orders.get(orderId) : undefined),
-    [orderId, user?.id]
+    [orderId, db]
   );
-  const dexieItems =
-    useLiveQuery(async () => {
-      return await db.order_items.toArray();
-    }, [user?.id]) || [];
-  const order = liveOrder || dexieOrder;
-  const items = liveItems.length > 0 ? liveItems : dexieItems.filter((i) => i.order_id === orderId);
-  const dexieShop = useLiveQuery(
+  const items =
+    useLiveQuery(
+      async () => (orderId ? db.order_items.where('order_id').equals(orderId).toArray() : []),
+      [orderId, db]
+    ) || [];
+  const shop = useLiveQuery(
     async () => (order?.shop_id ? db.shops.get(order.shop_id) : undefined),
-    [order?.shop_id, user?.id]
+    [order?.shop_id, db]
   );
-  const shop = liveShop || dexieShop;
 
   const { currency } = useMarket(shop?.market_code);
   const [paySheetOpen, setPaySheetOpen] = useState(false);
@@ -916,7 +816,7 @@ export function CustomerOrderDetailPage() {
         p_reason: 'Cancelled by customer',
       });
       await pullTableDelta(db, 'orders');
-      toast.success('Order cancelled');
+      toast.success(t('ui.orders.cancelled'));
     } catch (err: any) {
       toast.error(err?.message || 'Could not cancel order');
     } finally {
@@ -982,7 +882,7 @@ export function CustomerOrderDetailPage() {
 
       {/* Order Items */}
       <Card className="space-y-3">
-        <h2 className="text-sm font-bold text-foreground uppercase tracking-wider">Items</h2>
+        <h2 className="text-sm font-bold text-foreground uppercase tracking-wider">{t('ui.orders.items')}</h2>
         <div className="divide-y divide-border">
           {items.map((item) => (
             <div key={item.id} className="py-2.5 flex items-center justify-between text-sm">

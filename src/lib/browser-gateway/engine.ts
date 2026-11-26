@@ -2,6 +2,8 @@ import { PGlite, type PGliteInterface } from '@electric-sql/pglite';
 import { PGliteWorker } from '@electric-sql/pglite/worker';
 import { FULL_SCHEMA_AND_CONFIG_SQL } from './sql-bundle';
 import { seedBrowserDemoDatabase } from './demo-seed';
+import { ADMIN_STATS_SQL } from '../../../supabase/functions/admin-stats/index';
+import { RPC_REGISTRY, INIT_PAYMENT_SQL, initPaymentParams } from '../rpc-registry';
 import type { SessionUser } from '../supabase';
 import type { LocaleCode } from '../database.types';
 
@@ -446,105 +448,13 @@ export async function browserCallRpc<T = any>(
   const db = await getBrowserDb();
   const ctx = getContextFromUser(user);
 
-  if (fnName === 'place_order') {
-    const { rows } = await queryAsUser<any>(
-      db,
-      ctx,
-      `SELECT * FROM public.place_order($1::uuid, $2::uuid, $3::jsonb, $4::fulfilment_type, $5, $6, $7::timestamptz, $8::bigint, $9);`,
-      [
-        args.p_order_id,
-        args.p_shop_id,
-        JSON.stringify(args.p_items),
-        args.p_fulfilment || 'pickup',
-        args.p_address || null,
-        args.p_note || null,
-        args.p_client_created_at || new Date().toISOString(),
-        args.p_expected_total_minor ?? null,
-        args.p_preferred_payment_method || null,
-      ]
+  const spec = RPC_REGISTRY[fnName];
+  if (spec) {
+    const { rows } = await queryAsUser<any>(db, ctx, spec.sql, spec.params(args));
+    spec.touches.forEach((table, i) =>
+      broadcastRealtimeEvent({ table, eventType: 'UPDATE', record: i === 0 ? rows[0] : undefined })
     );
-    broadcastRealtimeEvent({ table: 'orders', eventType: 'INSERT', record: rows[0] });
-    broadcastRealtimeEvent({ table: 'order_items', eventType: 'INSERT' });
-    broadcastRealtimeEvent({ table: 'order_events', eventType: 'INSERT' });
-    broadcastRealtimeEvent({ table: 'notifications', eventType: 'INSERT' });
-    return rows[0] as T;
-  }
-
-  if (fnName === 'update_order_status') {
-    const { rows } = await queryAsUser<any>(
-      db,
-      ctx,
-      `SELECT * FROM public.update_order_status($1::uuid, $2::order_status, $3);`,
-      [args.p_order_id, args.p_to_status, args.p_reason || null]
-    );
-    broadcastRealtimeEvent({ table: 'orders', eventType: 'UPDATE', record: rows[0] });
-    broadcastRealtimeEvent({ table: 'order_events', eventType: 'INSERT' });
-    broadcastRealtimeEvent({ table: 'ledger_entries', eventType: 'INSERT' });
-    broadcastRealtimeEvent({ table: 'notifications', eventType: 'INSERT' });
-    return rows[0] as T;
-  }
-
-  if (fnName === 'record_payment') {
-    const { rows } = await queryAsUser<any>(
-      db,
-      ctx,
-      `SELECT * FROM public.record_payment($1, $2::uuid, $3::uuid, $4::uuid, $5::bigint, $6, $7);`,
-      [
-        args.p_idempotency_key,
-        args.p_shop_id,
-        args.p_customer_id,
-        args.p_order_id || null,
-        args.p_amount_minor,
-        args.p_method || 'cash',
-        args.p_note || null,
-      ]
-    );
-    broadcastRealtimeEvent({ table: 'payments', eventType: 'INSERT', record: rows[0] });
-    broadcastRealtimeEvent({ table: 'ledger_entries', eventType: 'INSERT' });
-    broadcastRealtimeEvent({ table: 'orders', eventType: 'UPDATE' });
-    return rows[0] as T;
-  }
-
-  if (fnName === 'set_order_on_credit') {
-    const { rows } = await queryAsUser<any>(
-      db,
-      ctx,
-      `SELECT * FROM public.set_order_on_credit($1::uuid);`,
-      [args.p_order_id]
-    );
-    broadcastRealtimeEvent({ table: 'orders', eventType: 'UPDATE', record: rows[0] });
-    return rows[0] as T;
-  }
-
-  if (fnName === 'admin_set_subscription') {
-    const { rows } = await queryAsUser<any>(
-      db,
-      ctx,
-      `SELECT * FROM public.admin_set_subscription($1::uuid, $2, $3, $4);`,
-      [args.p_shop_id, args.p_action, args.p_reason, args.p_reference || null]
-    );
-    broadcastRealtimeEvent({ table: 'subscriptions', eventType: 'UPDATE', record: rows[0] });
-    broadcastRealtimeEvent({ table: 'shops', eventType: 'UPDATE' });
-    return rows[0] as T;
-  }
-
-  if (fnName === 'mark_notifications_read') {
-    const { rows } = await queryAsUser<any>(
-      db,
-      ctx,
-      `SELECT public.mark_notifications_read($1::uuid[]) AS count;`,
-      [args.p_ids || []]
-    );
-    return (rows[0]?.count ?? 0) as T;
-  }
-
-  if (fnName === 'run_scheduled_reminders') {
-    const { rows } = await queryAsUser<any>(
-      db,
-      ctx,
-      `SELECT public.run_scheduled_reminders() AS result;`
-    );
-    return rows[0]?.result as T;
+    return (spec.result === 'value' ? rows[0]?.value : rows[0]) as T;
   }
 
   throw new Error(`UNKNOWN_RPC_${fnName.toUpperCase()}`);
@@ -552,8 +462,9 @@ export async function browserCallRpc<T = any>(
 
 export async function browserInitPayment(
   input: {
-    purpose: 'order' | 'subscription';
+    purpose: 'order' | 'subscription' | 'balance';
     order_id?: string | null;
+    amount_minor?: number | null;
     subscription_id?: string | null;
     shop_id: string;
     method_code: string;
@@ -565,87 +476,12 @@ export async function browserInitPayment(
     throw new Error('UNAUTHENTICATED');
   }
   const db = await getBrowserDb();
-
-  const { rows: existing } = await queryPrivileged<any>(
-    db,
-    `SELECT * FROM public.payments WHERE idempotency_key = $1;`,
-    [input.idempotency_key]
-  );
-  if (existing[0]) {
-    return {
-      payment: existing[0],
-      checkoutUrl: `/pay/demo/${existing[0].id}?method=${encodeURIComponent(existing[0].method_code)}`,
-    };
-  }
-
-  let amountMinor = 0;
-  let currencyCode = 'ETB';
-  let shopId = input.shop_id;
-  const orderId = input.order_id || null;
-  let subscriptionId = input.subscription_id || null;
-
-  if (input.purpose === 'subscription') {
-    const { rows: subs } = await queryPrivileged<any>(
-      db,
-      `SELECT s.*, p.price_minor, p.currency_code
-       FROM public.subscriptions s
-       JOIN public.plans p ON p.id = s.plan_id
-       WHERE s.shop_id = $1;`,
-      [shopId]
-    );
-    if (!subs[0]) {
-      throw new Error('SUBSCRIPTION_NOT_FOUND');
-    }
-    subscriptionId = subs[0].id;
-    amountMinor = Number(subs[0].price_minor);
-    currencyCode = subs[0].currency_code;
-  } else {
-    const { rows: orders } = await queryPrivileged<any>(
-      db,
-      `SELECT * FROM public.orders WHERE id = $1;`,
-      [orderId]
-    );
-    if (!orders[0]) {
-      throw new Error('ORDER_NOT_FOUND');
-    }
-    if (orders[0].status === 'pending') {
-      throw new Error('CANNOT_PAY_PENDING_ORDER');
-    }
-    shopId = orders[0].shop_id;
-    amountMinor = Number(orders[0].total_minor);
-    currencyCode = orders[0].currency_code;
-  }
-
-  const paymentId = crypto.randomUUID();
-  const providerRef = `DEMO-${paymentId.slice(0, 8).toUpperCase()}`;
-
-  const { rows: inserted } = await queryPrivileged<any>(
-    db,
-    `INSERT INTO public.payments (
-      id, purpose, order_id, subscription_id, shop_id, payer_id,
-      amount_minor, currency_code, method_code, provider, provider_ref,
-      status, idempotency_key
-    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'demo', $10, 'pending', $11)
-    RETURNING *;`,
-    [
-      paymentId,
-      input.purpose || 'order',
-      orderId,
-      subscriptionId,
-      shopId,
-      user.id,
-      amountMinor,
-      currencyCode,
-      input.method_code || 'chapa',
-      providerRef,
-      input.idempotency_key,
-    ]
-  );
-
-  broadcastRealtimeEvent({ table: 'payments', eventType: 'INSERT', record: inserted[0] });
+  // All checks (ownership, amount due, idempotency) live in SQL init_payment.
+  const { rows } = await queryAsUser<any>(db, getContextFromUser(user), INIT_PAYMENT_SQL, initPaymentParams(input));
+  broadcastRealtimeEvent({ table: 'payments', eventType: 'INSERT', record: rows[0] });
   return {
-    payment: inserted[0],
-    checkoutUrl: `/pay/demo/${paymentId}?method=${encodeURIComponent(input.method_code || 'chapa')}`,
+    payment: rows[0],
+    checkoutUrl: `/pay/demo/${rows[0].id}?method=${encodeURIComponent(rows[0].method_code)}`,
   };
 }
 
@@ -681,22 +517,7 @@ export async function browserFetchAdminStats(user: SessionUser | null): Promise<
   const { rows } = await queryAsUser<any>(
     db,
     ctx,
-    `SELECT jsonb_build_object(
-      'customers_count', (SELECT COUNT(*) FROM public.profiles WHERE role = 'customer'),
-      'shop_owners_count', (SELECT COUNT(*) FROM public.profiles WHERE role = 'shop_owner'),
-      'admins_count', (SELECT COUNT(*) FROM public.profiles WHERE role = 'admin'),
-      'shops_count', (SELECT COUNT(*) FROM public.shops WHERE deleted_at IS NULL),
-      'active_subscriptions', (SELECT COUNT(*) FROM public.subscriptions WHERE status = 'active'),
-      'trial_subscriptions', (SELECT COUNT(*) FROM public.subscriptions WHERE status = 'trial'),
-      'expired_subscriptions', (SELECT COUNT(*) FROM public.subscriptions WHERE status IN ('expired', 'suspended')),
-      'orders_today', (SELECT COUNT(*) FROM public.orders WHERE placed_at >= date_trunc('day', now())),
-      'gmv_today_minor', COALESCE((
-        SELECT SUM(total_minor)
-        FROM public.orders
-        WHERE placed_at >= date_trunc('day', now())
-          AND status NOT IN ('rejected', 'cancelled')
-      ), 0)
-    ) AS stats;`
+    ADMIN_STATS_SQL
   );
   return rows[0]?.stats || {};
 }

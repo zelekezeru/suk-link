@@ -21,6 +21,8 @@ import { getUserDb } from '../../lib/sync/db';
 import { pullTableDelta } from '../../lib/sync/pull';
 import { toMinor, fromMinorToDecimal } from '../../lib/money';
 import { translateJsonb } from '../../lib/i18n';
+import { useMarket } from '../../lib/useMarket';
+import { isMarketToday } from '../../lib/dates';
 import {
   apiFetchAdminStats,
   apiCallRpc,
@@ -30,6 +32,7 @@ import {
 export function AdminOverviewPage() {
   const user = useSessionStore((s) => s.user);
   const db = getUserDb(user?.id || 'guest');
+  const { market } = useMarket();
   const [stats, setStats] = useState<any>(null);
 
   useEffect(() => {
@@ -43,13 +46,13 @@ export function AdminOverviewPage() {
   const subs = useLiveQuery(async () => db.subscriptions.toArray(), [user?.id]) || [];
   const orders = useLiveQuery(async () => db.orders.toArray(), [user?.id]) || [];
 
-  const todayIso = new Date().toISOString().slice(0, 10);
-  const ordersTodayCount =
-    stats?.orders_today ?? orders.filter((o) => o.placed_at.slice(0, 10) === todayIso).length;
+  // Offline fallback only; the server stats evaluate "today" per shop market.
+  const isToday = (iso: string) => isMarketToday(iso, market.timezone);
+  const ordersTodayCount = stats?.orders_today ?? orders.filter((o) => isToday(o.placed_at)).length;
   const gmvTodayMinor =
     stats?.gmv_today_minor ??
     orders
-      .filter((o) => o.placed_at.slice(0, 10) === todayIso && !['rejected', 'cancelled'].includes(o.status))
+      .filter((o) => isToday(o.placed_at) && !['rejected', 'cancelled'].includes(o.status))
       .reduce((acc, o) => acc + o.total_minor, 0);
 
   return (
@@ -330,6 +333,15 @@ export function AdminConfigPage() {
   const db = getUserDb(user?.id || 'guest');
 
   const markets = useLiveQuery(async () => db.markets.toArray(), [user?.id]) || [];
+  // Symbol and minor digits come from the plan's market row, never from code.
+  const currencyForPlan = (marketCode: string, currencyCode: string) => {
+    const m = markets.find((mk) => mk.code === marketCode);
+    return {
+      currency: currencyCode,
+      symbol: m?.currency_symbol ?? currencyCode,
+      digits: m?.minor_unit_digits ?? 2,
+    };
+  };
   const plans = useLiveQuery(async () => db.plans.toArray(), [user?.id]) || [];
   const paymentMethods =
     useLiveQuery(async () => db.payment_methods.toArray(), [user?.id]) || [];
@@ -421,11 +433,7 @@ export function AdminConfigPage() {
                 </div>
                 <Money
                   amountMinor={p.price_minor}
-                  currency={{
-                    currency: p.currency_code,
-                    symbol: p.currency_code === 'KES' ? 'KSh' : 'Br',
-                    digits: 2,
-                  }}
+                  currency={currencyForPlan(p.market_code, p.currency_code)}
                   className="text-lg text-primary"
                 />
               </div>

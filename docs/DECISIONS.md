@@ -18,3 +18,23 @@
 ## 4. Local Postgres Execution Engine for Development & CI
 - **Context:** All migrations live in `supabase/migrations/0001_*.sql` through `0006_*.sql` using standard PostgreSQL 15+ DDL, RLS policies, triggers, views, and `SECURITY DEFINER` PL/pgSQL RPC functions.
 - **Decision:** To allow `npm run db:reset`, `npm run test:rls`, and the local Supabase backend (`http://127.0.0.1:54321`) to run reliably even when Docker Desktop is not installed on the host machine, we use `@electric-sql/pglite` (full PostgreSQL 16 compiled to WebAssembly) executing the exact `supabase/migrations/*.sql` files, enforcing native PostgreSQL Row Level Security (`SET LOCAL ROLE authenticated`, `request.jwt.claims`), and serving a local Supabase-compatible REST, RPC, Auth, Storage, Edge Functions, and Realtime WebSocket/SSE gateway on port `54321` (or Vite middleware).
+
+## 5. Order Numbers (Section 17.3) — migration `0007_order_counters.sql`
+- **Decision:** `place_order` reserves numbers from `shop_order_counters` with `INSERT … ON CONFLICT DO UPDATE … RETURNING`, which row-locks the shop's counter and serialises concurrent orders. `unique(shop_id, order_number)` makes any regression fail loudly.
+- **Seeds and imports:** an `AFTER INSERT` trigger on `orders` moves the counter forward to any `SL-NNNN` inserted directly, so seeded history never collides with the next live order.
+- **Access:** the counter table has RLS enabled and no policies; `next_shop_order_number` is revoked from `PUBLIC`. Only `place_order` (security definer) uses them.
+
+## 6. "Today" Is the Market Day
+- **Decision:** every "today" figure (shop dashboard, admin KPIs) uses the calendar day in `markets.timezone`, never UTC. Client: `src/lib/dates.ts` (`isMarketToday`). Server: `ADMIN_STATS_SQL` compares `placed_at AT TIME ZONE m.timezone`.
+- **Single source:** `supabase/functions/admin-stats/index.ts` exports the SQL; the browser gateway and local gateway import it instead of keeping copies.
+
+## 7. Screens Do Not Poll
+- **Decision:** screens read Dexie through `useLiveQuery` and call `useFreshTables([...])` once on mount for a delta pull. Live updates come only from the sync engine (Realtime, reconnect, resume, 60s foreground interval). Per-screen `setInterval` refetches are not allowed.
+- **Realtime pulls are deltas:** the realtime record is applied directly, then a delta pull of that table catches rows written in the same transaction.
+- **Newly visible customers:** a customer's profile becomes visible to a shop via RLS on first order, but its `updated_at` is old, so delta sync misses it. `pullTableDelta` does one full `profiles` pull when `orders`, `shop_customers` or `ledger_entries` reference an unknown customer.
+
+## 8. Test-Payments Ribbon (Section 17.5)
+- **Decision:** the client shows "Test payments · no real money moves" on every screen unless `VITE_PAYMENT_MODE=live` (static demo always shows it). Receipts for `provider = 'demo'` payments carry a "Test payment" label. A missing variable errs toward showing the ribbon.
+
+## 9. i18n Enforcement
+- **Decision:** ESLint `no-restricted-syntax` rejects literal JSX text, literal `title/placeholder/aria-label/label/description/alt` attributes and literal `toast()` messages in `src/**/*.tsx`. Exempt: `DevUiGallery`, `TrialDemoControls`, static-demo presenter panels (marked inline), and the admin console (English-only staff tool for now).

@@ -33,6 +33,7 @@ import { getFailedOutboxMutations } from '../../lib/sync/outbox';
 import { refreshOutboxBadges } from '../../lib/sync/engine';
 import { Button } from '../../components/ui/Button';
 import { TrialSandboxButton } from '../../components/ui/TrialDemoControls';
+import { RouteSuspense } from '../lazyPage';
 
 function NeedsAttentionSheet({
   open,
@@ -41,6 +42,7 @@ function NeedsAttentionSheet({
   open: boolean;
   onOpenChange: (o: boolean) => void;
 }) {
+  const { t } = useTranslation();
   const user = useSessionStore((s) => s.user);
   const db = getUserDb(user?.id || 'guest');
   const failedOps =
@@ -52,10 +54,10 @@ function NeedsAttentionSheet({
   };
 
   return (
-    <BottomSheet open={open} onOpenChange={onOpenChange} title="Sync Actions Needing Attention">
+    <BottomSheet open={open} onOpenChange={onOpenChange} title={t('ui.sync.attentionTitle')}>
       <div className="space-y-3">
         {failedOps.length === 0 ? (
-          <p className="text-sm text-muted text-center py-4">All items are synced.</p>
+          <p className="text-sm text-muted text-center py-4">{t('ui.sync.allSynced')}</p>
         ) : (
           failedOps.map((op) => (
             <div key={op.id} className="p-3 rounded-card border border-danger/30 bg-danger-tint/40 space-y-2">
@@ -63,7 +65,7 @@ function NeedsAttentionSheet({
                 <span className="text-sm font-bold text-danger uppercase">{op.op}</span>
                 <Button variant="ghost" size="sm" onClick={() => dismissFailed(op.id)}>
                   <Trash2 className="w-4 h-4" />
-                  <span>Dismiss</span>
+                  <span>{t('ui.common.dismiss')}</span>
                 </Button>
               </div>
               <p className="text-xs text-foreground break-words">{op.last_error}</p>
@@ -159,7 +161,9 @@ export function CustomerLayout() {
         </header>
 
         <main className="flex-1 max-w-5xl w-full mx-auto p-4 md:p-6">
-          <Outlet />
+          <RouteSuspense>
+            <Outlet />
+          </RouteSuspense>
         </main>
       </div>
 
@@ -237,7 +241,7 @@ export function ShopLayout() {
             </div>
             <div>
               <div className="font-bold text-base text-primary">{t('app.name')}</div>
-              <div className="text-[11px] text-muted">Shop Owner Portal</div>
+              <div className="text-[11px] text-muted">{t('ui.layout.shopPortal')}</div>
             </div>
           </div>
 
@@ -310,7 +314,9 @@ export function ShopLayout() {
         </header>
 
         <main className="flex-1 max-w-6xl w-full mx-auto p-4 md:p-6">
-          <Outlet />
+          <RouteSuspense>
+            <Outlet />
+          </RouteSuspense>
         </main>
       </div>
 
@@ -378,7 +384,7 @@ export function AdminLayout() {
               </div>
               <div>
                 <div className="font-bold text-base text-primary">{t('admin.title')}</div>
-                <div className="text-xs text-muted">Suk Link Admin</div>
+                <div className="text-xs text-muted">{t('ui.layout.adminConsole')}</div>
               </div>
             </div>
             <Button
@@ -439,7 +445,9 @@ export function AdminLayout() {
           </div>
         </header>
         <main className="flex-1 max-w-6xl w-full mx-auto p-4 md:p-6">
-          <Outlet />
+          <RouteSuspense>
+            <Outlet />
+          </RouteSuspense>
         </main>
       </div>
     </div>

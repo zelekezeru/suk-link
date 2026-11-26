@@ -15,6 +15,8 @@ const MIGRATION_FILES = [
   '0004_functions.sql',
   '0005_views_indexes.sql',
   '0006_realtime_cron_storage.sql',
+  '0007_order_counters.sql',
+  '0008_walk_in_credit_and_balances.sql',
 ];
 
 export async function applyMigrationsAndSeedSql(db: PGlite): Promise<void> {

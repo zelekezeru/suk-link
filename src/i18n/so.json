@@ -243,5 +243,100 @@
     "themeLight": "Iftiin",
     "themeDark": "Mugdi",
     "defaultAddress": "Ciwaanka keenista caadiga ah"
+  },
+  "ui": {
+    "common": {
+      "dismiss": "Iska saar",
+      "view": "Eeg",
+      "viewAll": "Dhammaan eeg",
+      "manage": "Maamul",
+      "details": "Faahfaahin",
+      "open": "Fur",
+      "pendingSync": "Waxay sugaysaa isku waafajin",
+      "decrease": "Yaree tirada",
+      "increase": "Kordhi tirada",
+      "preview": "Horu-eeg",
+      "uploadPhoto": "Soo geli sawir",
+      "photo": "Sawir"
+    },
+    "sync": {
+      "attentionTitle": "Isbeddellada u baahan fiiro gaar ah",
+      "allSynced": "Wax walba waa la isku waafajiyay."
+    },
+    "layout": {
+      "shopPortal": "Milkiilaha dukaanka",
+      "adminConsole": "Maamulka Suk Link"
+    },
+    "customer": {
+      "noShopsTitle": "Dukaan lama helin",
+      "noShopsBody": "Isku day magac dukaan ama alaab kale."
+    },
+    "cart": {
+      "addressRequired": "Geli cinwaanka lagu keenayo",
+      "pricesChanged": "Qiimayaal qaar ayaa isbeddelay. Hubi gaadhigaaga ka hor intaadan dalban.",
+      "removeItem": "Ka saar alaabta",
+      "notePlaceholder": "Tilmaamo aad u leedahay dukaanka…",
+      "newTotal": "Wadarta cusub"
+    },
+    "orders": {
+      "cancelled": "Dalabka waa la joojiyay",
+      "items": "Alaabta",
+      "order": "Dalab",
+      "orderNumber": "Dalab {{number}}"
+    },
+    "notifications": {
+      "title": "Ogeysiisyada",
+      "markAllRead": "Dhammaan u calaamadee la akhriyay",
+      "empty": "Weli ogeysiis ma jiro."
+    },
+    "payments": {
+      "cashSelected": "Lacag caddaan ah marka la qaato ayaa la doortay",
+      "subscriptionRenewed": "Isdiiwaangelinta waa la cusboonaysiiyay",
+      "declined": "Lacag bixinta waa la diiday",
+      "selectedGateway": "Habka lacag bixinta ee la doortay",
+      "paymentId": "Aqoonsiga lacag bixinta: {{id}}",
+      "testRibbon": "Lacag bixin tijaabo ah · lacag dhab ah ma dhaqaaqdo",
+      "testReceipt": "Lacag bixin tijaabo ah · {{provider}}"
+    },
+    "shop": {
+      "openingTime": "Saacadda furitaanka",
+      "closingTime": "Saacadda xiritaanka",
+      "logo": "Astaanta dukaanka",
+      "cover": "Sawirka daboolka",
+      "orderAccepted": "Dalabka waa la aqbalay",
+      "noPendingOrders": "Hadda dalab cusub ma jiro.",
+      "noBalances": "Ma jiro macmiil lacag lagu leeyahay.",
+      "searchOrders": "Raadi lambarka dalabka ama macmiilka…",
+      "noOrdersInTab": "Weli halkan dalab ma jiro",
+      "statusQueued": "Isbeddelka waa la kaydiyay. Waa la diri doonaa marka internetku soo laabto.",
+      "orderOnCredit": "Dalabka waxaa lagu qoray deyn",
+      "paymentRecorded": "Lacag bixinta waa la diiwaangeliyay",
+      "cashRecorded": "Lacag bixin caddaan ah waa la diiwaangeliyay",
+      "noteLabel": "Fiiro:",
+      "orderItems": "Alaabta dalabka",
+      "reason": "Sababta",
+      "confirmReject": "Diid dalabka",
+      "noCustomers": "Weli macmiil ma jiro",
+      "partialPaymentPlaceholder": "Lacagta caddaanka ah ee la bixiyay",
+      "remaining": "Inta hartay",
+      "noRenewals": "Weli lacag cusboonaysiin ah ma jirto."
+    },
+    "support": {
+      "ticketSubmitted": "Codsiga taageerada waa la diray",
+      "noTickets": "Weli codsi taageero ma jiro.",
+      "adminReply": "Jawaabta kooxda taageerada: {{reply}}"
+    },
+    "profile": {
+      "avatar": "Sawirka astaanta"
+    },
+    "auth": {
+      "languageOptions": "Doorashooyinka luqadda",
+      "identifierPlaceholder": "Iimayl ama telefoon ({{code}}…)"
+    },
+    "examples": {
+      "fullName": "Hodan Cali",
+      "shopName": "Abebe Mini Market",
+      "address": "Bole Medhanialem, Guriga 142"
+    }
   }
 }

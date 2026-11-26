@@ -243,5 +243,100 @@
     "themeLight": "Ifaa",
     "themeDark": "Dukkana",
     "defaultAddress": "Teessoo geessituu idilee"
+  },
+  "ui": {
+    "common": {
+      "dismiss": "Haqi",
+      "view": "Ilaali",
+      "viewAll": "Hunda ilaali",
+      "manage": "Bulchi",
+      "details": "Bal'ina",
+      "open": "Bani",
+      "pendingSync": "Walsimsiisuuf eegaa jira",
+      "decrease": "Baay'ina hir'isi",
+      "increase": "Baay'ina dabali",
+      "preview": "Duraan ilaali",
+      "uploadPhoto": "Suuraa olkaa'i",
+      "photo": "Suuraa"
+    },
+    "sync": {
+      "attentionTitle": "Jijjiiramoota xiyyeeffannaa barbaadan",
+      "allSynced": "Hundi walsimeera."
+    },
+    "layout": {
+      "shopPortal": "Abbaa suuqii",
+      "adminConsole": "Bulchiinsa Suk Link"
+    },
+    "customer": {
+      "noShopsTitle": "Suuqiin hin argamne",
+      "noShopsBody": "Maqaa suuqii ykn meeshaa biraa yaali."
+    },
+    "cart": {
+      "addressRequired": "Teessoo itti siif geessinu galchi",
+      "pricesChanged": "Gatiin tokko tokko jijjiirameera. Osoo hin ajajin dura gaarii kee ilaali.",
+      "removeItem": "Meeshaa haqi",
+      "notePlaceholder": "Qajeelfama suuqiitiif yoo jiraate…",
+      "newTotal": "Ida'ama haaraa"
+    },
+    "orders": {
+      "cancelled": "Ajajni haqameera",
+      "items": "Meeshaalee",
+      "order": "Ajaja",
+      "orderNumber": "Ajaja {{number}}"
+    },
+    "notifications": {
+      "title": "Beeksisoota",
+      "markAllRead": "Hunda akka dubbifametti mallatteessi",
+      "empty": "Ammaaf beeksisni hin jiru."
+    },
+    "payments": {
+      "cashSelected": "Yeroo fudhattu maallaqa callaan kaffaluun filatameera",
+      "subscriptionRenewed": "Galmeen haaromfameera",
+      "declined": "Kaffaltiin didameera",
+      "selectedGateway": "Karaa kaffaltii filatame",
+      "paymentId": "Eenyummaa kaffaltii: {{id}}",
+      "testRibbon": "Kaffaltii yaalii · maallaqni dhugaa hin socho'u",
+      "testReceipt": "Kaffaltii yaalii · {{provider}}"
+    },
+    "shop": {
+      "openingTime": "Sa'aatii banamuu",
+      "closingTime": "Sa'aatii cufamuu",
+      "logo": "Mallattoo suuqii",
+      "cover": "Suuraa haguuggii",
+      "orderAccepted": "Ajajni fudhatameera",
+      "noPendingOrders": "Amma ajajni haaraan hin jiru.",
+      "noBalances": "Maamilli liqii qabu hin jiru.",
+      "searchOrders": "Lakkoofsa ajajaa ykn maamila barbaadi…",
+      "noOrdersInTab": "Ammaaf asitti ajajni hin jiru",
+      "statusQueued": "Jijjiiramni olkaa'ameera. Yeroo interneetiin deebi'u ni ergama.",
+      "orderOnCredit": "Ajajni liqiin galmeeffameera",
+      "paymentRecorded": "Kaffaltiin galmeeffameera",
+      "cashRecorded": "Kaffaltiin maallaqa callaa galmeeffameera",
+      "noteLabel": "Yaadannoo:",
+      "orderItems": "Meeshaalee ajajaa",
+      "reason": "Sababa",
+      "confirmReject": "Ajaja didi",
+      "noCustomers": "Ammaaf maamilli hin jiru",
+      "partialPaymentPlaceholder": "Hanga maallaqa callaan kaffalame",
+      "remaining": "Kan hafe",
+      "noRenewals": "Ammaaf kaffaltiin haaromsaa hin jiru."
+    },
+    "support": {
+      "ticketSubmitted": "Gaaffiin deeggarsaa ergameera",
+      "noTickets": "Ammaaf gaaffiin deeggarsaa hin jiru.",
+      "adminReply": "Deebii garee deeggarsaa: {{reply}}"
+    },
+    "profile": {
+      "avatar": "Suuraa piroofaayilii"
+    },
+    "auth": {
+      "languageOptions": "Filannoowwan afaanii",
+      "identifierPlaceholder": "Imeelii ykn bilbila ({{code}}…)"
+    },
+    "examples": {
+      "fullName": "Caaltuu Gammachuu",
+      "shopName": "Abebe Mini Market",
+      "address": "Bole Medhanialem, Mana 142"
+    }
   }
 }

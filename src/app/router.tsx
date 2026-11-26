@@ -8,35 +8,41 @@ import {
   RegisterPage,
   ForgotPasswordPage,
 } from '../features/auth/AuthPages';
-import {
-  CustomerHomePage,
-  CustomerShopPage,
-  CustomerCartPage,
-  CustomerOrdersPage,
-  CustomerOrderDetailPage,
-  CustomerBalancesPage,
-} from '../features/customer/CustomerPages';
-import {
-  ShopSetupOrProfilePage,
-  ShopDashboardPage,
-  ShopOrdersPage,
-  ShopOrderDetailPage,
-  ShopProductsPage,
-  ShopCustomersPage,
-  ShopCustomerDetailPage,
-  ShopSubscriptionPage,
-  ShopMorePage,
-} from '../features/shop/ShopPages';
-import {
-  AdminOverviewPage,
-  AdminUsersPage,
-  AdminShopsAndSubscriptionsPage,
-  AdminConfigPage,
-  AdminTicketsPage,
-} from '../features/admin/AdminPages';
-import { DemoPayPage, PaymentConfirmPage } from '../features/payments/PaymentFlows';
-import { ProfilePage, SupportPage } from '../features/support/ProfileAndSupport';
-import { DevUiGallery } from '../components/ui/DevUiGallery';
+import { lazyPage, RouteSuspense } from './lazyPage';
+
+// Route-level code splitting: each role downloads only its own screens.
+// Auth pages stay in the entry chunk because they are the first screen most users see.
+const loadCustomer = () => import('../features/customer/CustomerPages');
+const loadShop = () => import('../features/shop/ShopPages');
+const loadAdmin = () => import('../features/admin/AdminPages');
+const loadPayments = () => import('../features/payments/PaymentFlows');
+const loadSupport = () => import('../features/support/ProfileAndSupport');
+
+const CustomerHomePage = lazyPage(loadCustomer, 'CustomerHomePage');
+const CustomerShopPage = lazyPage(loadCustomer, 'CustomerShopPage');
+const CustomerCartPage = lazyPage(loadCustomer, 'CustomerCartPage');
+const CustomerOrdersPage = lazyPage(loadCustomer, 'CustomerOrdersPage');
+const CustomerOrderDetailPage = lazyPage(loadCustomer, 'CustomerOrderDetailPage');
+const CustomerBalancesPage = lazyPage(loadCustomer, 'CustomerBalancesPage');
+const ShopSetupOrProfilePage = lazyPage(loadShop, 'ShopSetupOrProfilePage');
+const ShopDashboardPage = lazyPage(loadShop, 'ShopDashboardPage');
+const ShopOrdersPage = lazyPage(loadShop, 'ShopOrdersPage');
+const ShopOrderDetailPage = lazyPage(loadShop, 'ShopOrderDetailPage');
+const ShopProductsPage = lazyPage(loadShop, 'ShopProductsPage');
+const ShopCustomersPage = lazyPage(loadShop, 'ShopCustomersPage');
+const ShopCustomerDetailPage = lazyPage(loadShop, 'ShopCustomerDetailPage');
+const ShopSubscriptionPage = lazyPage(loadShop, 'ShopSubscriptionPage');
+const ShopMorePage = lazyPage(loadShop, 'ShopMorePage');
+const AdminOverviewPage = lazyPage(loadAdmin, 'AdminOverviewPage');
+const AdminUsersPage = lazyPage(loadAdmin, 'AdminUsersPage');
+const AdminShopsAndSubscriptionsPage = lazyPage(loadAdmin, 'AdminShopsAndSubscriptionsPage');
+const AdminConfigPage = lazyPage(loadAdmin, 'AdminConfigPage');
+const AdminTicketsPage = lazyPage(loadAdmin, 'AdminTicketsPage');
+const DemoPayPage = lazyPage(loadPayments, 'DemoPayPage');
+const PaymentConfirmPage = lazyPage(loadPayments, 'PaymentConfirmPage');
+const ProfilePage = lazyPage(loadSupport, 'ProfilePage');
+const SupportPage = lazyPage(loadSupport, 'SupportPage');
+const DevUiGallery = lazyPage(() => import('../components/ui/DevUiGallery'), 'DevUiGallery');
 import { useSessionStore } from '../features/auth/useSession';
 
 function RootIndexRedirect() {
@@ -82,11 +88,19 @@ export const appRouter = createAppRouter([
   },
   {
     path: '/pay/demo/:paymentId',
-    element: <DemoPayPage />,
+    element: (
+      <RouteSuspense>
+        <DemoPayPage />
+      </RouteSuspense>
+    ),
   },
   {
     path: '/dev/ui',
-    element: <DevUiGallery />,
+    element: (
+      <RouteSuspense>
+        <DevUiGallery />
+      </RouteSuspense>
+    ),
   },
   // Customer routes (/c/*)
   {

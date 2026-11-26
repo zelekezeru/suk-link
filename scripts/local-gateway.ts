@@ -2,6 +2,8 @@ import http from 'http';
 import { PGlite } from '@electric-sql/pglite';
 import { openPersistentPostgres, queryAsUser, type JwtContext } from './pg-engine';
 import { seedDatabase } from './seed';
+import { ADMIN_STATS_SQL } from '../supabase/functions/admin-stats/index';
+import { RPC_REGISTRY, INIT_PAYMENT_SQL, initPaymentParams } from '../src/lib/rpc-registry';
 
 let pgInstance: PGlite | null = null;
 let pgInitPromise: Promise<PGlite> | null = null;
@@ -203,111 +205,17 @@ export async function handleApiRequest(
       const fnName = urlObj.pathname.replace('/api/rpc/', '');
       const args = await readJsonBody(req);
 
-      if (fnName === 'place_order') {
-        const { rows } = await queryAsUser(
-          db,
-          ctx,
-          `SELECT * FROM public.place_order($1::uuid, $2::uuid, $3::jsonb, $4::fulfilment_type, $5, $6, $7::timestamptz, $8::bigint, $9);`,
-          [
-            args.p_order_id,
-            args.p_shop_id,
-            JSON.stringify(args.p_items),
-            args.p_fulfilment || 'pickup',
-            args.p_address || null,
-            args.p_note || null,
-            args.p_client_created_at || new Date().toISOString(),
-            args.p_expected_total_minor ?? null,
-            args.p_preferred_payment_method || null,
-          ]
-        );
-        broadcastRealtimeEvent({ table: 'orders', eventType: 'INSERT', record: rows[0] });
-        broadcastRealtimeEvent({ table: 'notifications', eventType: 'INSERT' });
-        sendJson(res, 200, { data: rows[0] });
+      const spec = RPC_REGISTRY[fnName];
+      if (!spec) {
+        sendJson(res, 404, { error: `UNKNOWN_RPC_${fnName.toUpperCase()}` });
         return true;
       }
-
-      if (fnName === 'update_order_status') {
-        const { rows } = await queryAsUser(
-          db,
-          ctx,
-          `SELECT * FROM public.update_order_status($1::uuid, $2::order_status, $3);`,
-          [args.p_order_id, args.p_to_status, args.p_reason || null]
-        );
-        broadcastRealtimeEvent({ table: 'orders', eventType: 'UPDATE', record: rows[0] });
-        broadcastRealtimeEvent({ table: 'order_events', eventType: 'INSERT' });
-        broadcastRealtimeEvent({ table: 'ledger_entries', eventType: 'INSERT' });
-        broadcastRealtimeEvent({ table: 'notifications', eventType: 'INSERT' });
-        sendJson(res, 200, { data: rows[0] });
-        return true;
-      }
-
-      if (fnName === 'record_payment') {
-        const { rows } = await queryAsUser(
-          db,
-          ctx,
-          `SELECT * FROM public.record_payment($1, $2::uuid, $3::uuid, $4::uuid, $5::bigint, $6, $7);`,
-          [
-            args.p_idempotency_key,
-            args.p_shop_id,
-            args.p_customer_id,
-            args.p_order_id || null,
-            args.p_amount_minor,
-            args.p_method || 'cash',
-            args.p_note || null,
-          ]
-        );
-        broadcastRealtimeEvent({ table: 'payments', eventType: 'INSERT', record: rows[0] });
-        broadcastRealtimeEvent({ table: 'ledger_entries', eventType: 'INSERT' });
-        broadcastRealtimeEvent({ table: 'orders', eventType: 'UPDATE' });
-        sendJson(res, 200, { data: rows[0] });
-        return true;
-      }
-
-      if (fnName === 'set_order_on_credit') {
-        const { rows } = await queryAsUser(
-          db,
-          ctx,
-          `SELECT * FROM public.set_order_on_credit($1::uuid);`,
-          [args.p_order_id]
-        );
-        broadcastRealtimeEvent({ table: 'orders', eventType: 'UPDATE', record: rows[0] });
-        sendJson(res, 200, { data: rows[0] });
-        return true;
-      }
-
-      if (fnName === 'admin_set_subscription') {
-        const { rows } = await queryAsUser(
-          db,
-          ctx,
-          `SELECT * FROM public.admin_set_subscription($1::uuid, $2, $3, $4);`,
-          [args.p_shop_id, args.p_action, args.p_reason, args.p_reference || null]
-        );
-        broadcastRealtimeEvent({ table: 'subscriptions', eventType: 'UPDATE', record: rows[0] });
-        broadcastRealtimeEvent({ table: 'shops', eventType: 'UPDATE' });
-        sendJson(res, 200, { data: rows[0] });
-        return true;
-      }
-
-      if (fnName === 'mark_notifications_read') {
-        const { rows } = await queryAsUser(
-          db,
-          ctx,
-          `SELECT public.mark_notifications_read($1::uuid[]) AS count;`,
-          [args.p_ids || []]
-        );
-        sendJson(res, 200, { data: rows[0]?.count ?? 0 });
-        return true;
-      }
-
-      if (fnName === 'run_scheduled_reminders') {
-        const { rows } = await queryAsUser(
-          db,
-          ctx,
-          `SELECT public.run_scheduled_reminders() AS result;`
-        );
-        sendJson(res, 200, { data: rows[0]?.result });
-        return true;
-      }
+      const { rows } = await queryAsUser(db, ctx, spec.sql, spec.params(args));
+      spec.touches.forEach((table, i) =>
+        broadcastRealtimeEvent({ table, eventType: 'UPDATE', record: i === 0 ? rows[0] : undefined })
+      );
+      sendJson(res, 200, { data: spec.result === 'value' ? rows[0]?.value : rows[0] });
+      return true;
     }
 
     // 4. Edge Functions: /api/functions/payments-init, /api/functions/payments-demo-confirm, /api/functions/admin-stats
@@ -318,86 +226,12 @@ export async function handleApiRequest(
         return true;
       }
 
-      // Check existing payment by idempotency_key
-      const { rows: existing } = await db.query<any>(
-        `SELECT * FROM public.payments WHERE idempotency_key = $1;`,
-        [body.idempotency_key]
-      );
-      if (existing[0]) {
-        sendJson(res, 200, {
-          payment: existing[0],
-          checkoutUrl: `/pay/demo/${existing[0].id}?method=${encodeURIComponent(existing[0].method_code)}`,
-        });
-        return true;
-      }
-
-      let amountMinor = 0;
-      let currencyCode = 'ETB';
-      let shopId = body.shop_id;
-      const orderId = body.order_id || null;
-      let subscriptionId = body.subscription_id || null;
-
-      if (body.purpose === 'subscription') {
-        const { rows: subs } = await db.query<any>(
-          `SELECT s.*, p.price_minor, p.currency_code
-           FROM public.subscriptions s
-           JOIN public.plans p ON p.id = s.plan_id
-           WHERE s.shop_id = $1;`,
-          [shopId]
-        );
-        if (!subs[0]) {
-          sendJson(res, 404, { error: 'SUBSCRIPTION_NOT_FOUND' });
-          return true;
-        }
-        subscriptionId = subs[0].id;
-        amountMinor = Number(subs[0].price_minor);
-        currencyCode = subs[0].currency_code;
-      } else {
-        const { rows: orders } = await db.query<any>(
-          `SELECT * FROM public.orders WHERE id = $1;`,
-          [orderId]
-        );
-        if (!orders[0]) {
-          sendJson(res, 404, { error: 'ORDER_NOT_FOUND' });
-          return true;
-        }
-        if (orders[0].status === 'pending') {
-          sendJson(res, 400, { error: 'CANNOT_PAY_PENDING_ORDER' });
-          return true;
-        }
-        shopId = orders[0].shop_id;
-        amountMinor = Number(orders[0].total_minor);
-        currencyCode = orders[0].currency_code;
-      }
-
-      const paymentId = crypto.randomUUID();
-      const providerRef = `DEMO-${paymentId.slice(0, 8).toUpperCase()}`;
-
-      const { rows: inserted } = await db.query<any>(
-        `INSERT INTO public.payments (
-          id, purpose, order_id, subscription_id, shop_id, payer_id,
-          amount_minor, currency_code, method_code, provider, provider_ref,
-          status, idempotency_key
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'demo', $10, 'pending', $11)
-        RETURNING *;`,
-        [
-          paymentId,
-          body.purpose || 'order',
-          orderId,
-          subscriptionId,
-          shopId,
-          ctx.sub,
-          amountMinor,
-          currencyCode,
-          body.method_code || 'chapa',
-          providerRef,
-          body.idempotency_key,
-        ]
-      );
-
+      // All checks (ownership, amount due, idempotency) live in SQL init_payment.
+      const { rows: inserted } = await queryAsUser(db, ctx, INIT_PAYMENT_SQL, initPaymentParams(body));
+      broadcastRealtimeEvent({ table: 'payments', eventType: 'INSERT', record: inserted[0] });
       sendJson(res, 200, {
         payment: inserted[0],
-        checkoutUrl: `/pay/demo/${paymentId}?method=${encodeURIComponent(body.method_code || 'chapa')}`,
+        checkoutUrl: `/pay/demo/${inserted[0].id}?method=${encodeURIComponent(inserted[0].method_code)}`,
       });
       return true;
     }
@@ -429,22 +263,7 @@ export async function handleApiRequest(
       const { rows } = await queryAsUser(
         db,
         ctx,
-        `SELECT jsonb_build_object(
-          'customers_count', (SELECT COUNT(*) FROM public.profiles WHERE role = 'customer'),
-          'shop_owners_count', (SELECT COUNT(*) FROM public.profiles WHERE role = 'shop_owner'),
-          'admins_count', (SELECT COUNT(*) FROM public.profiles WHERE role = 'admin'),
-          'shops_count', (SELECT COUNT(*) FROM public.shops WHERE deleted_at IS NULL),
-          'active_subscriptions', (SELECT COUNT(*) FROM public.subscriptions WHERE status = 'active'),
-          'trial_subscriptions', (SELECT COUNT(*) FROM public.subscriptions WHERE status = 'trial'),
-          'expired_subscriptions', (SELECT COUNT(*) FROM public.subscriptions WHERE status IN ('expired', 'suspended')),
-          'orders_today', (SELECT COUNT(*) FROM public.orders WHERE placed_at >= date_trunc('day', now())),
-          'gmv_today_minor', COALESCE((
-            SELECT SUM(total_minor)
-            FROM public.orders
-            WHERE placed_at >= date_trunc('day', now())
-              AND status NOT IN ('rejected', 'cancelled')
-          ), 0)
-        ) AS stats;`
+        ADMIN_STATS_SQL
       );
       sendJson(res, 200, rows[0]?.stats || {});
       return true;

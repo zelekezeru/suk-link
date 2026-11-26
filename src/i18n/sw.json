@@ -243,5 +243,100 @@
     "themeLight": "angavu",
     "themeDark": "Giza",
     "defaultAddress": "Anwani ya kawaida ya kufikishiwa"
+  },
+  "ui": {
+    "common": {
+      "dismiss": "Ondoa",
+      "view": "Tazama",
+      "viewAll": "Tazama zote",
+      "manage": "Simamia",
+      "details": "Maelezo",
+      "open": "Fungua",
+      "pendingSync": "Inasubiri kusawazishwa",
+      "decrease": "Punguza idadi",
+      "increase": "Ongeza idadi",
+      "preview": "Onyesho la awali",
+      "uploadPhoto": "Pakia picha",
+      "photo": "Picha"
+    },
+    "sync": {
+      "attentionTitle": "Mabadiliko yanayohitaji kuangaliwa",
+      "allSynced": "Kila kitu kimesawazishwa."
+    },
+    "layout": {
+      "shopPortal": "Mmiliki wa duka",
+      "adminConsole": "Usimamizi wa Suk Link"
+    },
+    "customer": {
+      "noShopsTitle": "Hakuna duka lililopatikana",
+      "noShopsBody": "Jaribu jina lingine la duka au bidhaa."
+    },
+    "cart": {
+      "addressRequired": "Weka anwani ya kupelekewa",
+      "pricesChanged": "Bei zingine zimebadilika. Kagua kikapu chako kabla ya kuagiza.",
+      "removeItem": "Ondoa bidhaa",
+      "notePlaceholder": "Maelekezo yoyote kwa duka…",
+      "newTotal": "Jumla mpya"
+    },
+    "orders": {
+      "cancelled": "Agizo limeghairiwa",
+      "items": "Bidhaa",
+      "order": "Agizo",
+      "orderNumber": "Agizo {{number}}"
+    },
+    "notifications": {
+      "title": "Arifa",
+      "markAllRead": "Weka zote kuwa zimesomwa",
+      "empty": "Bado hakuna arifa."
+    },
+    "payments": {
+      "cashSelected": "Malipo ya pesa taslimu wakati wa kupokea yamechaguliwa",
+      "subscriptionRenewed": "Usajili umesasishwa",
+      "declined": "Malipo yamekataliwa",
+      "selectedGateway": "Njia ya malipo iliyochaguliwa",
+      "paymentId": "Kitambulisho cha malipo: {{id}}",
+      "testRibbon": "Malipo ya majaribio · hakuna pesa halisi inayohamishwa",
+      "testReceipt": "Malipo ya majaribio · {{provider}}"
+    },
+    "shop": {
+      "openingTime": "Saa ya kufungua",
+      "closingTime": "Saa ya kufunga",
+      "logo": "Nembo ya duka",
+      "cover": "Picha ya jalada",
+      "orderAccepted": "Agizo limekubaliwa",
+      "noPendingOrders": "Hakuna maagizo mapya kwa sasa.",
+      "noBalances": "Hakuna mteja anayedaiwa.",
+      "searchOrders": "Tafuta namba ya agizo au mteja…",
+      "noOrdersInTab": "Bado hakuna maagizo hapa",
+      "statusQueued": "Mabadiliko yamehifadhiwa. Yatatumwa mtandao ukirudi.",
+      "orderOnCredit": "Agizo limewekwa kwa mkopo",
+      "paymentRecorded": "Malipo yamerekodiwa",
+      "cashRecorded": "Malipo ya pesa taslimu yamerekodiwa",
+      "noteLabel": "Dokezo:",
+      "orderItems": "Bidhaa za agizo",
+      "reason": "Sababu",
+      "confirmReject": "Kataa agizo",
+      "noCustomers": "Bado hakuna wateja",
+      "partialPaymentPlaceholder": "Kiasi kilicholipwa kwa pesa taslimu",
+      "remaining": "Kilichobaki",
+      "noRenewals": "Bado hakuna malipo ya kusasisha."
+    },
+    "support": {
+      "ticketSubmitted": "Ombi la msaada limetumwa",
+      "noTickets": "Bado hakuna maombi ya msaada.",
+      "adminReply": "Jibu la timu ya msaada: {{reply}}"
+    },
+    "profile": {
+      "avatar": "Picha ya wasifu"
+    },
+    "auth": {
+      "languageOptions": "Chaguo za lugha",
+      "identifierPlaceholder": "Barua pepe au simu ({{code}}…)"
+    },
+    "examples": {
+      "fullName": "Amina Juma",
+      "shopName": "Abebe Mini Market",
+      "address": "Bole Medhanialem, Nyumba 142"
+    }
   }
 }

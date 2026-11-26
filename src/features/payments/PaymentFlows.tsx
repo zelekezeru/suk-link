@@ -96,7 +96,7 @@ export function PayOrderSheet({
       }
 
       if (selectedCode === 'cash') {
-        toast.success('Selected Cash on pickup/delivery');
+        toast.success(t('ui.payments.cashSelected'));
         onOpenChange(false);
         return;
       }
@@ -135,7 +135,7 @@ export function PayOrderSheet({
     <BottomSheet open={open} onOpenChange={onOpenChange} title={t('payments.chooseMethod')}>
       <div className="space-y-4">
         <div className="p-3 rounded-card bg-surface-muted flex items-center justify-between">
-          <span className="text-sm font-medium text-muted">Order {order.order_number}</span>
+          <span className="text-sm font-medium text-muted">{t('ui.orders.orderNumber', { number: order.order_number })}</span>
           <Money amountMinor={order.total_minor} currency={currency} className="text-lg text-primary" />
         </div>
 
@@ -227,7 +227,7 @@ export function DemoPayPage() {
 
       if (decision === 'approve') {
         if (updated.purpose === 'subscription') {
-          toast.success('Subscription renewed!');
+          toast.success(t('ui.payments.subscriptionRenewed'));
           navigate('/s/subscription', { replace: true });
         } else {
           navigate(
@@ -236,7 +236,7 @@ export function DemoPayPage() {
           );
         }
       } else {
-        toast.error('Payment declined');
+        toast.error(t('ui.payments.declined'));
         if (updated.purpose === 'subscription') {
           navigate('/s/subscription', { replace: true });
         } else {
@@ -260,7 +260,7 @@ export function DemoPayPage() {
           <div>
             <h1 className="text-lg font-bold text-foreground">{t('payments.demoCheckoutTitle')}</h1>
             <p className="text-xs text-muted uppercase">
-              Selected Gateway: <span className="font-bold text-primary">{method}</span>
+              {t('ui.payments.selectedGateway')}: <span className="font-bold text-primary">{method}</span>
             </p>
           </div>
         </div>
@@ -278,7 +278,7 @@ export function DemoPayPage() {
           </div>
         ) : (
           <div className="p-4 rounded-card bg-surface-muted text-center text-sm text-muted">
-            Payment ID: {paymentId}
+            {t('ui.payments.paymentId', { id: paymentId })}
           </div>
         )}
 
@@ -363,7 +363,7 @@ export function PaymentConfirmPage() {
               <Money amountMinor={order.total_minor} currency={currency} className="text-base" />
             </div>
             <div className="flex justify-between">
-              <span className="text-muted">Order</span>
+              <span className="text-muted">{t('ui.orders.order')}</span>
               <span className="font-semibold">{order.order_number}</span>
             </div>
             <div className="flex justify-between">
@@ -376,6 +376,14 @@ export function PaymentConfirmPage() {
               <span className="text-muted">{t('payments.dateTime')}</span>
               <span className="text-xs">{new Date().toLocaleString()}</span>
             </div>
+            {payment?.provider === 'demo' && (
+              <p
+                data-testid="test-payment-receipt-label"
+                className="pt-1 text-xs font-semibold text-info text-center"
+              >
+                {t('ui.payments.testReceipt', { provider: 'Demo' })}
+              </p>
+            )}
           </div>
         )}
 

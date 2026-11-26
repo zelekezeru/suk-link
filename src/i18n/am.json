@@ -243,5 +243,100 @@
     "themeLight": "ብሩህ",
     "themeDark": "ጨለማ",
     "defaultAddress": "መደበኛ የማድረሻ አድራሻ"
+  },
+  "ui": {
+    "common": {
+      "dismiss": "አስወግድ",
+      "view": "እይ",
+      "viewAll": "ሁሉንም እይ",
+      "manage": "አስተዳድር",
+      "details": "ዝርዝር",
+      "open": "ክፈት",
+      "pendingSync": "ለማመሳሰል በመጠበቅ ላይ",
+      "decrease": "ብዛት ቀንስ",
+      "increase": "ብዛት ጨምር",
+      "preview": "ቅድመ እይታ",
+      "uploadPhoto": "ፎቶ ስቀል",
+      "photo": "ፎቶ"
+    },
+    "sync": {
+      "attentionTitle": "ትኩረት የሚያስፈልጋቸው ለውጦች",
+      "allSynced": "ሁሉም ተመሳስሏል።"
+    },
+    "layout": {
+      "shopPortal": "የሱቅ ባለቤት",
+      "adminConsole": "ሱቅ ሊንክ አስተዳዳሪ"
+    },
+    "customer": {
+      "noShopsTitle": "ምንም ሱቅ አልተገኘም",
+      "noShopsBody": "ሌላ የሱቅ ወይም የዕቃ ስም ይሞክሩ።"
+    },
+    "cart": {
+      "addressRequired": "የማድረሻ አድራሻዎን ያስገቡ",
+      "pricesChanged": "አንዳንድ ዋጋዎች ተቀይረዋል። ከማዘዝዎ በፊት ቅርጫትዎን ይፈትሹ።",
+      "removeItem": "ዕቃውን አስወግድ",
+      "notePlaceholder": "ለሱቁ መመሪያ ካለ…",
+      "newTotal": "አዲስ ጠቅላላ"
+    },
+    "orders": {
+      "cancelled": "ትዕዛዙ ተሰርዟል",
+      "items": "ዕቃዎች",
+      "order": "ትዕዛዝ",
+      "orderNumber": "ትዕዛዝ {{number}}"
+    },
+    "notifications": {
+      "title": "ማሳወቂያዎች",
+      "markAllRead": "ሁሉንም እንደተነበቡ ምልክት አድርግ",
+      "empty": "እስካሁን ምንም ማሳወቂያ የለም።"
+    },
+    "payments": {
+      "cashSelected": "ሲረከቡ በጥሬ ገንዘብ መክፈል ተመርጧል",
+      "subscriptionRenewed": "ምዝገባው ታድሷል",
+      "declined": "ክፍያው ውድቅ ተደርጓል",
+      "selectedGateway": "የተመረጠው የክፍያ መንገድ",
+      "paymentId": "የክፍያ መለያ፦ {{id}}",
+      "testRibbon": "የሙከራ ክፍያ · ምንም እውነተኛ ገንዘብ አይንቀሳቀስም",
+      "testReceipt": "የሙከራ ክፍያ · {{provider}}"
+    },
+    "shop": {
+      "openingTime": "የመክፈቻ ሰዓት",
+      "closingTime": "የመዝጊያ ሰዓት",
+      "logo": "የሱቅ አርማ",
+      "cover": "የሽፋን ምስል",
+      "orderAccepted": "ትዕዛዙ ተቀባይነት አግኝቷል",
+      "noPendingOrders": "አሁን ምንም አዲስ ትዕዛዝ የለም።",
+      "noBalances": "ዕዳ ያለበት ደንበኛ የለም።",
+      "searchOrders": "የትዕዛዝ ቁጥር ወይም ደንበኛ ፈልግ…",
+      "noOrdersInTab": "እዚህ እስካሁን ትዕዛዝ የለም",
+      "statusQueued": "ለውጡ ተቀምጧል። ኢንተርኔት ሲመለስ ይላካል።",
+      "orderOnCredit": "ትዕዛዙ በዱቤ ተመዝግቧል",
+      "paymentRecorded": "ክፍያው ተመዝግቧል",
+      "cashRecorded": "የጥሬ ገንዘብ ክፍያ ተመዝግቧል",
+      "noteLabel": "ማስታወሻ፦",
+      "orderItems": "የትዕዛዝ ዕቃዎች",
+      "reason": "ምክንያት",
+      "confirmReject": "ትዕዛዙን ውድቅ አድርግ",
+      "noCustomers": "እስካሁን ደንበኛ የለም",
+      "partialPaymentPlaceholder": "በጥሬ ገንዘብ የተከፈለ መጠን",
+      "remaining": "ቀሪ",
+      "noRenewals": "እስካሁን የእድሳት ክፍያ የለም።"
+    },
+    "support": {
+      "ticketSubmitted": "የድጋፍ ጥያቄዎ ተልኳል",
+      "noTickets": "እስካሁን የድጋፍ ጥያቄ የለም።",
+      "adminReply": "የድጋፍ ቡድን መልስ፦ {{reply}}"
+    },
+    "profile": {
+      "avatar": "የመገለጫ ፎቶ"
+    },
+    "auth": {
+      "languageOptions": "የቋንቋ አማራጮች",
+      "identifierPlaceholder": "ኢሜይል ወይም ስልክ ({{code}}…)"
+    },
+    "examples": {
+      "fullName": "ሰላም ተስፋዬ",
+      "shopName": "አበበ ሚኒ ማርኬት",
+      "address": "ቦሌ መድኃኔዓለም፣ ቤት ቁ. 142"
+    }
   }
 }

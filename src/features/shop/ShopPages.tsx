@@ -35,13 +35,15 @@ import {
 import { useSessionStore } from '../auth/useSession';
 import { useUiStore } from '../../stores/ui';
 import { useMarket } from '../../lib/useMarket';
+import { isMarketToday } from '../../lib/dates';
 import { resolveAssetUrl } from '../../lib/images';
 import { toMinor, fromMinorToDecimal } from '../../lib/money';
 import { translateJsonb } from '../../lib/i18n';
 import { getUserDb } from '../../lib/sync/db';
 import { enqueueOutboxMutation } from '../../lib/sync/outbox';
 import { refreshOutboxBadges } from '../../lib/sync/engine';
-import { pullTableDelta } from '../../lib/sync/pull';
+import { pullTableDelta, type SyncedTableName } from '../../lib/sync/pull';
+import { useFreshTables } from '../../lib/sync/useFreshTables';
 import {
   apiCallRpc,
   apiUpsertRow,
@@ -49,6 +51,9 @@ import {
   apiInitPayment,
 } from '../../lib/supabase';
 import type { ProductRow, OrderStatus } from '../../lib/database.types';
+
+const SHOP_ORDERS_TABLES: readonly SyncedTableName[] = ['orders', 'order_items'];
+const SUBSCRIPTION_TABLES: readonly SyncedTableName[] = ['subscriptions', 'plans', 'payments'];
 
 export function useMyShop() {
   const user = useSessionStore((s) => s.user);
@@ -186,7 +191,7 @@ export function ShopSetupOrProfilePage({ isSetupWizard = false }: { isSetupWizar
             data-testid="shop-name-input"
             value={name}
             onChange={(e) => setName(e.target.value)}
-            placeholder="Abebe Mini Market"
+            placeholder={t('ui.examples.shopName')}
             required
           />
 
@@ -226,13 +231,13 @@ export function ShopSetupOrProfilePage({ isSetupWizard = false }: { isSetupWizar
 
           <div className="grid grid-cols-2 gap-4">
             <Input
-              label="Opening Time"
+              label={t('ui.shop.openingTime')}
               type="time"
               value={openingTime}
               onChange={(e) => setOpeningTime(e.target.value)}
             />
             <Input
-              label="Closing Time"
+              label={t('ui.shop.closingTime')}
               type="time"
               value={closingTime}
               onChange={(e) => setClosingTime(e.target.value)}
@@ -240,8 +245,8 @@ export function ShopSetupOrProfilePage({ isSetupWizard = false }: { isSetupWizar
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <ImagePicker label="Shop Logo" value={logoUrl} onChange={setLogoUrl} />
-            <ImagePicker label="Cover Image" value={coverUrl} onChange={setCoverUrl} />
+            <ImagePicker label={t('ui.shop.logo')} value={logoUrl} onChange={setLogoUrl} />
+            <ImagePicker label={t('ui.shop.cover')} value={coverUrl} onChange={setCoverUrl} />
           </div>
 
           <div className="space-y-3 pt-2 border-t border-border">
@@ -283,33 +288,28 @@ export function ShopDashboardPage() {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const { shop, subscription, db, user } = useMyShop();
-  const { currency } = useMarket(shop?.market_code);
+  const { currency, market } = useMarket(shop?.market_code);
 
-  const allOrders =
-    useLiveQuery(async () => {
-      if (!user) return [];
-      return await db.orders.toArray();
-    }, [user?.id]) || [];
+  // Indexed by shop_id: a year of orders on a budget phone must not be scanned in JS.
+  const shopId = shop?.id;
+  const shopOrders =
+    useLiveQuery(
+      async () => (shopId ? db.orders.where('shop_id').equals(shopId).toArray() : []),
+      [shopId, db]
+    ) || [];
+  const orders = [...shopOrders].sort((a, b) => b.placed_at.localeCompare(a.placed_at));
 
-  const orders = allOrders
-    .filter((o) => shop && o.shop_id === shop.id)
-    .sort((a, b) => b.placed_at.localeCompare(a.placed_at));
+  const payments =
+    useLiveQuery(
+      async () => (shopId ? db.payments.where('shop_id').equals(shopId).toArray() : []),
+      [shopId, db]
+    ) || [];
 
-  const allPayments =
-    useLiveQuery(async () => {
-      if (!user) return [];
-      return await db.payments.toArray();
-    }, [user?.id]) || [];
-
-  const payments = allPayments.filter((p) => shop && p.shop_id === shop.id);
-
-  const allLedgerEntries =
-    useLiveQuery(async () => {
-      if (!user) return [];
-      return await db.ledger_entries.toArray();
-    }, [user?.id]) || [];
-
-  const ledgerEntries = allLedgerEntries.filter((le) => shop && le.shop_id === shop.id);
+  const ledgerEntries =
+    useLiveQuery(
+      async () => (shopId ? db.ledger_entries.where('shop_id').equals(shopId).toArray() : []),
+      [shopId, db]
+    ) || [];
 
   const profilesMap =
     useLiveQuery(async () => {
@@ -331,8 +331,9 @@ export function ShopDashboardPage() {
     );
   }
 
-  const todayIsoDate = new Date().toISOString().slice(0, 10);
-  const ordersToday = orders.filter((o) => o.placed_at.slice(0, 10) === todayIsoDate);
+  // "Today" is the market's calendar day (e.g. Africa/Addis_Ababa), not the UTC day.
+  const now = new Date();
+  const ordersToday = orders.filter((o) => isMarketToday(o.placed_at, market.timezone, now));
   const salesTodayMinor = ordersToday
     .filter((o) => ['accepted', 'processing', 'completed'].includes(o.status))
     .reduce((sum, o) => sum + o.total_minor, 0);
@@ -342,7 +343,7 @@ export function ShopDashboardPage() {
       (p) =>
         p.purpose === 'order' &&
         p.status === 'succeeded' &&
-        (p.paid_at || p.created_at).slice(0, 10) === todayIsoDate
+        isMarketToday(p.paid_at || p.created_at, market.timezone, now)
     )
     .reduce((sum, p) => sum + p.amount_minor, 0);
 
@@ -376,7 +377,7 @@ export function ShopDashboardPage() {
       });
       await pullTableDelta(db, 'orders');
       await pullTableDelta(db, 'ledger_entries');
-      toast.success('Order accepted');
+      toast.success(t('ui.shop.orderAccepted'));
     } catch (err: any) {
       toast.error(err?.message || 'Error');
     }
@@ -396,18 +397,17 @@ export function ShopDashboardPage() {
 
       {/* Subscription Reminder Banner if trial, grace, or expiring within 30 days (Section 8) */}
       {subscription && (subscription.status !== 'active' || daysLeft <= 30) && (
-        <div
+        <button
+          type="button"
           onClick={() => navigate('/s/subscription')}
-          role="button"
-          tabIndex={0}
-          className="p-3.5 rounded-card bg-warning-tint border border-warning/40 flex items-center justify-between gap-3 cursor-pointer"
+          className="w-full text-left p-3.5 rounded-card bg-warning-tint border border-warning/40 flex items-center justify-between gap-3 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
         >
-          <div className="flex items-center gap-2.5 text-xs font-semibold text-amber-900 dark:text-amber-200">
+          <span className="flex items-center gap-2.5 text-xs font-semibold text-amber-900 dark:text-amber-200">
             <AlertTriangle className="w-4 h-4 shrink-0" />
             <span>{t('subscription.expiryBanner', { days: Math.max(0, daysLeft) })}</span>
-          </div>
-          <span className="text-xs font-bold underline">Manage</span>
-        </div>
+          </span>
+          <span className="text-xs font-bold underline">{t('ui.common.manage')}</span>
+        </button>
       )}
 
       {/* Today's 4 KPI Cards (Section 8) */}
@@ -453,13 +453,13 @@ export function ShopDashboardPage() {
             {t('shop.newOrders')} ({newPendingOrders.length})
           </h2>
           <Button variant="ghost" size="sm" onClick={() => navigate('/s/orders')}>
-            View all
+            {t('ui.common.viewAll')}
           </Button>
         </div>
 
         {newPendingOrders.length === 0 ? (
           <Card className="text-center py-6 text-sm text-muted">
-            No pending new orders right now.
+            {t('ui.shop.noPendingOrders')}
           </Card>
         ) : (
           <div className="space-y-3">
@@ -488,7 +488,7 @@ export function ShopDashboardPage() {
                         size="sm"
                         onClick={() => navigate(`/s/orders/${ord.id}`)}
                       >
-                        Details
+                        {t('ui.common.details')}
                       </Button>
                     </>
                   }
@@ -506,34 +506,33 @@ export function ShopDashboardPage() {
             {t('shop.customersWithBalances')} ({customersWithBalances.length})
           </h2>
           <Button variant="ghost" size="sm" onClick={() => navigate('/s/customers')}>
-            View all
+            {t('ui.common.viewAll')}
           </Button>
         </div>
 
         <Card className="divide-y divide-border p-0 overflow-hidden">
           {customersWithBalances.length === 0 ? (
             <div className="p-6 text-center text-sm text-muted">
-              No outstanding customer credit balances.
+              {t('ui.shop.noBalances')}
             </div>
           ) : (
             customersWithBalances.map(([custId, bal]) => {
               const cust = profilesMap.get(custId);
               return (
-                <div
+                <button
+                  type="button"
                   key={custId}
                   onClick={() => navigate(`/s/customers/${custId}`)}
-                  role="button"
-                  tabIndex={0}
-                  className="p-4 flex items-center justify-between hover:bg-surface-muted cursor-pointer"
+                  className="w-full text-left p-4 flex items-center justify-between hover:bg-surface-muted cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
                 >
-                  <div>
-                    <div className="text-sm font-bold text-foreground">
+                  <span className="block">
+                    <span className="block text-sm font-bold text-foreground">
                       {cust?.full_name || 'Customer'}
-                    </div>
-                    <div className="text-xs text-muted">{cust?.phone}</div>
-                  </div>
+                    </span>
+                    <span className="block text-xs text-muted">{cust?.phone}</span>
+                  </span>
                   <Money amountMinor={bal} currency={currency} className="text-base text-warning" />
-                </div>
+                </button>
               );
             })
           )}
@@ -546,42 +545,27 @@ export function ShopDashboardPage() {
 export function ShopOrdersPage() {
   const { t } = useTranslation();
   const navigate = useNavigate();
-  const { shop, db, user } = useMyShop();
+  const { shop, db } = useMyShop();
   const { currency } = useMarket(shop?.market_code);
   const [tab, setTab] = useState<'new' | 'active' | 'completed' | 'cancelled'>('new');
   const [search, setSearch] = useState('');
 
-  const [syncRev, setSyncRev] = useState(0);
+  // Opens on fresh data; new orders then arrive through Realtime into Dexie.
+  useFreshTables(SHOP_ORDERS_TABLES);
 
-  React.useEffect(() => {
-    if (!user) return;
-    const syncOrders = async () => {
-      if (navigator.onLine) {
-        await pullTableDelta(db, 'orders', true, user);
-        await pullTableDelta(db, 'profiles', true, user);
-        setSyncRev((r) => r + 1);
-      }
-    };
-    void syncOrders();
-    const timer = window.setInterval(syncOrders, 1000);
-    return () => window.clearInterval(timer);
-  }, [user, db]);
+  const shopOrders =
+    useLiveQuery(
+      async () => (shop ? db.orders.where('shop_id').equals(shop.id).toArray() : []),
+      [shop?.id, db]
+    ) || [];
 
-  const allOrders =
-    useLiveQuery(async () => {
-      if (!user) return [];
-      return await db.orders.toArray();
-    }, [user?.id, syncRev]) || [];
-
-  const orders = allOrders
-    .filter((o) => shop && o.shop_id === shop.id)
-    .sort((a, b) => b.placed_at.localeCompare(a.placed_at));
+  const orders = [...shopOrders].sort((a, b) => b.placed_at.localeCompare(a.placed_at));
 
   const profilesMap =
     useLiveQuery(async () => {
       const all = await db.profiles.toArray();
       return new Map(all.map((p) => [p.id, p]));
-    }, [shop?.id]) || new Map();
+    }, [shop?.id, db]) || new Map();
 
   const counts = {
     new: orders.filter((o) => o.status === 'pending').length,
@@ -617,7 +601,7 @@ export function ShopOrdersPage() {
           type="search"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          placeholder="Search order # or customer…"
+          placeholder={t('ui.shop.searchOrders')}
           className="min-h-[40px] px-3.5 py-1.5 rounded-input bg-surface border border-border text-sm"
         />
       </div>
@@ -654,7 +638,7 @@ export function ShopOrdersPage() {
       {filtered.length === 0 ? (
         <EmptyState
           icon={<ShoppingBag className="w-6 h-6" />}
-          title="No orders in this tab"
+          title={t('ui.shop.noOrdersInTab')}
         />
       ) : (
         <div className="space-y-3">
@@ -715,7 +699,7 @@ export function ShopOrderDetailPage() {
           reason: reason || null,
         });
         await refreshOutboxBadges(db);
-        toast.info('Queued status change offline');
+        toast.info(t('ui.shop.statusQueued'));
       } else {
         await apiCallRpc('update_order_status', {
           p_order_id: order.id,
@@ -740,7 +724,7 @@ export function ShopOrderDetailPage() {
     try {
       await apiCallRpc('set_order_on_credit', { p_order_id: order.id });
       await pullTableDelta(db, 'orders');
-      toast.success('Order placed on credit');
+      toast.success(t('ui.shop.orderOnCredit'));
     } catch (err: any) {
       toast.error(err?.message || 'Could not put on credit');
     } finally {
@@ -767,7 +751,7 @@ export function ShopOrderDetailPage() {
       await pullTableDelta(db, 'ledger_entries');
       await pullTableDelta(db, 'orders');
       setPaymentOpen(false);
-      toast.success('Payment recorded');
+      toast.success(t('ui.shop.paymentRecorded'));
     } catch (err: any) {
       toast.error(err?.message || 'Failed to record payment');
     } finally {
@@ -817,7 +801,7 @@ export function ShopOrderDetailPage() {
 
         {order.note && (
           <div className="p-3 rounded-input bg-surface-muted text-xs text-foreground">
-            <span className="font-semibold">Note:</span> {order.note}
+            <span className="font-semibold">{t('ui.shop.noteLabel')}</span> {order.note}
           </div>
         )}
 
@@ -911,7 +895,7 @@ export function ShopOrderDetailPage() {
 
       {/* Items Table */}
       <Card className="space-y-3">
-        <h2 className="text-sm font-bold uppercase tracking-wider">Order Items</h2>
+        <h2 className="text-sm font-bold uppercase tracking-wider">{t('ui.shop.orderItems')}</h2>
         <div className="divide-y divide-border">
           {items.map((item) => (
             <div key={item.id} className="py-2.5 flex items-center justify-between text-sm">
@@ -940,7 +924,7 @@ export function ShopOrderDetailPage() {
       >
         <div className="space-y-4">
           <Input
-            label="Reason"
+            label={t('ui.shop.reason')}
             value={rejectReason}
             onChange={(e) => setRejectReason(e.target.value)}
             required
@@ -951,7 +935,7 @@ export function ShopOrderDetailPage() {
             loading={busy}
             onClick={() => transitionTo('rejected', rejectReason)}
           >
-            Confirm Reject
+            {t('ui.shop.confirmReject')}
           </Button>
         </div>
       </BottomSheet>
@@ -1206,7 +1190,7 @@ export function ShopProductsPage() {
         title={editingProduct ? t('shop.editProduct') : t('shop.addProduct')}
       >
         <form onSubmit={handleSaveProduct} className="space-y-4">
-          <ImagePicker label="Photo" value={imageUrl} onChange={setImageUrl} />
+          <ImagePicker label={t('ui.common.photo')} value={imageUrl} onChange={setImageUrl} />
           <Input
             label={t('shop.productName')}
             data-testid="product-name-input"
@@ -1297,36 +1281,35 @@ export function ShopCustomersPage() {
       <h1 className="text-2xl font-bold text-foreground">{t('nav.customers')}</h1>
 
       {shopCustomers.length === 0 ? (
-        <EmptyState icon={<Users className="w-6 h-6" />} title="No customers yet" />
+        <EmptyState icon={<Users className="w-6 h-6" />} title={t('ui.shop.noCustomers')} />
       ) : (
         <Card className="divide-y divide-border p-0 overflow-hidden">
           {shopCustomers.map((sc) => {
             const prof = profilesMap.get(sc.customer_id);
             const bal = balancesMap.get(sc.customer_id) || 0;
             return (
-              <div
+              <button
+                type="button"
                 key={sc.id}
                 data-testid={`shop-customer-row-${prof?.full_name || sc.customer_id}`}
                 onClick={() => navigate(`/s/customers/${sc.customer_id}`)}
-                role="button"
-                tabIndex={0}
-                className="p-4 flex items-center justify-between hover:bg-surface-muted cursor-pointer"
+                className="w-full text-left p-4 flex items-center justify-between hover:bg-surface-muted cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
               >
-                <div>
-                  <div className="text-base font-bold text-foreground">
+                <span className="block">
+                  <span className="block text-base font-bold text-foreground">
                     {prof?.full_name || 'Customer'}
-                  </div>
-                  <div className="text-xs text-muted">{prof?.phone}</div>
-                </div>
-                <div className="text-right">
-                  <div className="text-xs text-muted">{t('shop.outstandingCredit')}</div>
+                  </span>
+                  <span className="block text-xs text-muted">{prof?.phone}</span>
+                </span>
+                <span className="block text-right">
+                  <span className="block text-xs text-muted">{t('shop.outstandingCredit')}</span>
                   <Money
                     amountMinor={bal}
                     currency={currency}
                     className={`text-base ${bal > 0 ? 'text-warning' : 'text-success'}`}
                   />
-                </div>
-              </div>
+                </span>
+              </button>
             );
           })}
         </Card>
@@ -1384,7 +1367,7 @@ export function ShopCustomerDetailPage() {
       setPayOpen(false);
       setAmountDecimal('');
       setNote('');
-      toast.success('Cash payment recorded');
+      toast.success(t('ui.shop.cashRecorded'));
     } catch (err: any) {
       toast.error(err?.message || 'Failed to record payment');
     } finally {
@@ -1477,7 +1460,7 @@ export function ShopCustomerDetailPage() {
             label={t('payments.paymentNote')}
             value={note}
             onChange={(e) => setNote(e.target.value)}
-            placeholder="Partial cash payment"
+            placeholder={t('ui.shop.partialPaymentPlaceholder')}
           />
           <Button
             type="submit"
@@ -1496,29 +1479,15 @@ export function ShopCustomerDetailPage() {
 export function ShopSubscriptionPage() {
   const { t } = useTranslation();
   const navigate = useNavigate();
-  const { shop, subscription, db, user } = useMyShop();
+  const { shop, subscription, db } = useMyShop();
   const locale = useUiStore((s) => s.locale);
   const { currency } = useMarket(shop?.market_code);
 
-  const [syncRev, setSyncRev] = useState(0);
-
-  React.useEffect(() => {
-    if (!user) return;
-    const syncSub = async () => {
-      if (navigator.onLine) {
-        await pullTableDelta(db, 'subscriptions', true, user);
-        await pullTableDelta(db, 'plans', true, user);
-        setSyncRev((r) => r + 1);
-      }
-    };
-    void syncSub();
-    const timer = window.setInterval(syncSub, 1000);
-    return () => window.clearInterval(timer);
-  }, [user, db]);
+  useFreshTables(SUBSCRIPTION_TABLES);
 
   const plan = useLiveQuery(
     async () => (subscription?.plan_id ? db.plans.get(subscription.plan_id) : undefined),
-    [subscription?.plan_id, syncRev]
+    [subscription?.plan_id, db]
   );
 
   const subPayments =
@@ -1590,7 +1559,7 @@ export function ShopSubscriptionPage() {
             </div>
           </div>
           <div>
-            <div className="text-xs text-muted">Remaining</div>
+            <div className="text-xs text-muted">{t('ui.shop.remaining')}</div>
             <div className="text-sm font-bold text-primary mt-0.5">
               {t('subscription.daysRemaining', { days: daysLeft })}
             </div>
@@ -1618,7 +1587,7 @@ export function ShopSubscriptionPage() {
           {t('subscription.paymentHistory')}
         </h2>
         {subPayments.length === 0 ? (
-          <p className="text-xs text-muted">No subscription renewal payments yet.</p>
+          <p className="text-xs text-muted">{t('ui.shop.noRenewals')}</p>
         ) : (
           <div className="divide-y divide-border">
             {subPayments.map((p) => (
