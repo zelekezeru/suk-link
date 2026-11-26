@@ -138,11 +138,19 @@ export async function getBrowserDb(): Promise<PGliteInterface> {
           const workerInstance = new Worker(new URL('./pg-worker.ts', import.meta.url), {
             type: 'module',
           });
-          const pgWorker = await PGliteWorker.create(workerInstance, {
-            dataDir: DB_NAME,
-            id: 'suklink-demo-pg-v1',
-          });
-          await pgWorker.waitReady;
+          const pgWorker = await Promise.race([
+            (async () => {
+              const w = await PGliteWorker.create(workerInstance, {
+                dataDir: DB_NAME,
+                id: 'suklink-demo-pg-v1',
+              });
+              await w.waitReady;
+              return w;
+            })(),
+            new Promise<never>((_, reject) =>
+              setTimeout(() => reject(new Error('PGliteWorker init timeout')), 12000)
+            ),
+          ]);
           dbInstance = pgWorker;
           return pgWorker;
         } catch (err) {

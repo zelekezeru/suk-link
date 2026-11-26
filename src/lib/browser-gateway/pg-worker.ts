@@ -27,18 +27,24 @@ async function ensureSchemaAndSeed(db: PGlite): Promise<void> {
 
 void worker({
   async init(options) {
-    let db: PGlite;
     try {
-      db = new PGlite(options.dataDir || 'idb://suklink-demo-pg-v1', {
-        relaxedDurability: true,
-      });
-      await db.waitReady;
-    } catch {
-      db = new PGlite();
-      await db.waitReady;
-    }
+      let db: PGlite;
+      try {
+        db = new PGlite(options.dataDir || 'idb://suklink-demo-pg-v1', {
+          relaxedDurability: true,
+        });
+        await db.waitReady;
+      } catch (idbErr) {
+        console.warn('[SukLink pg-worker] IndexedDB PGlite failed, using in-memory:', idbErr);
+        db = new PGlite();
+        await db.waitReady;
+      }
 
-    await ensureSchemaAndSeed(db);
-    return db;
+      await ensureSchemaAndSeed(db);
+      return db;
+    } catch (err) {
+      console.error('[SukLink pg-worker] Fatal init error:', err);
+      throw err;
+    }
   },
 });

@@ -717,8 +717,8 @@ export async function seedBrowserDemoDatabase(db: PGliteInterface): Promise<void
     await tx.query(
       `INSERT INTO public.notifications (user_id, type, title, body, data, created_at)
        VALUES
-         ($1, 'new_order', 'New Order SL-0021', 'Selam Tesfaye placed a Br 210.00 delivery order.', jsonb_build_object('order_id', $2), now() - interval '12 minutes'),
-         ($3, 'new_order', 'New Order SL-0023', 'Dawit Bekele placed a Br 190.00 pickup order.', jsonb_build_object('order_id', $4), now() - interval '25 minutes');`,
+         ($1, 'new_order', 'New Order SL-0021', 'Selam Tesfaye placed a Br 210.00 delivery order.', jsonb_build_object('order_id', $2::text), now() - interval '12 minutes'),
+         ($3, 'new_order', 'New Order SL-0023', 'Dawit Bekele placed a Br 190.00 pickup order.', jsonb_build_object('order_id', $4::text), now() - interval '25 minutes');`,
       [DEMO_USERS.shop1.id, pendingOrderId, DEMO_USERS.shop2.id, tsehayPendingId]
     );
 
